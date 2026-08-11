@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true, // 允许使用 CommonJS 模块语法
+    "skipLibCheck": true, // 跳过类型检查
+    "forceConsistentCasingInFileNames": true, // 强制文件名大小写一致
+    "resolveJsonModule": true, // 允许导入 JSON 模块
+    "isolatedModules": true // 每个文件都是一个独立的模块，不会与全局变量冲突
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}
