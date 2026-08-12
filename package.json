@@ -7,7 +7,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node src/agent/cli.ts",
+    "start": "node dist/agent/cli.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -27,6 +28,9 @@
   "dependencies": {
     "@langchain/core": "^1.1.46",
     "@langchain/langgraph": "^1.3.0",
-    "langchain": "^1.4.0"
+    "@langchain/openai": "^1.4.5",
+    "dotenv": "^17.4.2",
+    "langchain": "^1.4.0",
+    "zod": "^4.4.3"
   }
 }
