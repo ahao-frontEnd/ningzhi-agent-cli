@@ -1,54 +1,54 @@
-import { createAgent, type ReactAgent } from 'langchain'
-import { tool } from '@langchain/core/tools'
-import { ChatOpenAI } from '@langchain/openai'
-import { MemorySaver } from '@langchain/langgraph'
-import { z } from 'zod'
-import * as dotenv from 'dotenv'
+import { createAgent, type ReactAgent } from "langchain";
+import { tool } from "@langchain/core/tools";
+import { ChatOpenAI } from "@langchain/openai";
+import { MemorySaver } from "@langchain/langgraph";
+import { z } from "zod";
+import * as dotenv from "dotenv";
 
-dotenv.config()
+dotenv.config();
 
 // ── 工具定义 ──────────────────────────────────────────────
 const search = tool(
   async ({ query }) => {
-    console.log(`\n[Tool] search called: "${query}"`)
+    console.log(`\n[Tool] search called: "${query}"`);
 
     if (
-      query.toLowerCase().includes('sf') ||
-      query.toLowerCase().includes('san francisco')
+      query.toLowerCase().includes("sf") ||
+      query.toLowerCase().includes("san francisco")
     ) {
-      return "It's 60 degrees and foggy."
+      return "It's 60 degrees and foggy.";
     }
-    return "It's 90 degrees and sunny."
+    return "It's 90 degrees and sunny.";
   },
   {
-    name: 'search',
-    description: 'Call to surf the web.',
+    name: "search",
+    description: "Call to surf the web.",
     schema: z.object({
-      query: z.string().describe('The query to use in your search.'),
+      query: z.string().describe("The query to use in your search."),
     }),
   },
-)
+);
 
 // ── 模型 ──────────────────────────────────────────────────
 const model = new ChatOpenAI({
-  model: 'kimi-k2.6',
+  model: "kimi-k2.6",
   apiKey: process.env.MOONSHOT_API_KEY,
   configuration: {
-    baseURL: 'https://api.moonshot.cn/v1',
+    baseURL: "https://api.moonshot.cn/v1",
   },
   streaming: true,
-})
+});
 
 // ── 记忆 ──────────────────────────────────────────────────
-const checkpointer = new MemorySaver()
+const checkpointer = new MemorySaver();
 
 // ── Agent 创建 ────────────────────────────────────────────
 export const agent: ReactAgent = createAgent({
   model,
   tools: [search],
-  systemPrompt: 'You are a helpful assistant.',
-  checkpointer
-})
+  systemPrompt: "You are a helpful assistant.",
+  checkpointer,
+});
 
 /**
  * 以流式方式运行 agent，将 token 逐个回调给调用方
@@ -60,32 +60,38 @@ export const agent: ReactAgent = createAgent({
 export async function runAgentStream(
   userMessage: string,
   onToken: (token: string) => void,
-  threadId: string = 'default-session',
+  threadId: string = "default-session",
+  signal?: AbortSignal,
 ): Promise<string> {
-  const config = { configurable: { thread_id: threadId } }
+  const config = { configurable: { thread_id: threadId } };
 
   const stream = await agent.stream(
-    { messages: [{ role: 'user', content: userMessage }] },
-    { ...config, streamMode: 'messages' },
-  )
+    { messages: [{ role: "user", content: userMessage }] },
+    { ...config, streamMode: "messages", signal },
+  );
 
-  let fullResponse = ''
+  let fullResponse = "";
 
   for await (const chunk of stream as any) {
-    const message = chunk[0]
-    const metadata = chunk[1]
+    if (signal?.aborted) {
+      throw new Error("aborted");
+    }
 
-    if (metadata?.langgraph_node !== 'model_request') continue
+    const message = chunk[0];
+    const metadata = chunk[1];
+
+    if (metadata?.langgraph_node !== "model_request") continue;
 
     // AIMessageChunk 的 content 在 message.content 属性上，不在 kwargs.content
-    const content: string = (message as any).content ?? (message as any).kwargs?.content ?? ''
-    const toolCallChunks = (message as any).tool_call_chunks ?? []
+    const content: string =
+      (message as any).content ?? (message as any).kwargs?.content ?? "";
+    const toolCallChunks = (message as any).tool_call_chunks ?? [];
 
-    if (!content || toolCallChunks.length > 0) continue
+    if (!content || toolCallChunks.length > 0) continue;
 
-    onToken(content)
-    fullResponse += content
+    onToken(content);
+    fullResponse += content;
   }
 
-  return fullResponse
+  return fullResponse;
 }
