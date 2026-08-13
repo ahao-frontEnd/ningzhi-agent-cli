@@ -1,6 +1,7 @@
 import { createAgent, type ReactAgent } from 'langchain'
 import { tool } from '@langchain/core/tools'
 import { ChatOpenAI } from '@langchain/openai'
+import { MemorySaver } from '@langchain/langgraph'
 import { z } from 'zod'
 import * as dotenv from 'dotenv'
 
@@ -38,11 +39,15 @@ const model = new ChatOpenAI({
   streaming: true,
 })
 
+// ── 记忆 ──────────────────────────────────────────────────
+const checkpointer = new MemorySaver()
+
 // ── Agent 创建 ────────────────────────────────────────────
 export const agent: ReactAgent = createAgent({
   model,
   tools: [search],
-  systemPrompt: 'You are a helpful assistant.'
+  systemPrompt: 'You are a helpful assistant.',
+  checkpointer
 })
 
 /**
