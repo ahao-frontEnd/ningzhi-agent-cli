@@ -1,8 +1,8 @@
-import { createAgent, type ReactAgent } from "langchain";
+import { createAgent } from "langchain";
 import { tool } from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
-import { MemorySaver } from "@langchain/langgraph";
 import { z } from "zod";
+import { MemorySaver } from "@langchain/langgraph";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -43,7 +43,7 @@ const model = new ChatOpenAI({
 const checkpointer = new MemorySaver();
 
 // ── Agent 创建 ────────────────────────────────────────────
-export const agent: ReactAgent = createAgent({
+export const agent = createAgent({
   model,
   tools: [search],
   systemPrompt: "You are a helpful assistant.",
@@ -74,7 +74,7 @@ export async function runAgentStream(
 
   for await (const chunk of stream as any) {
     if (signal?.aborted) {
-      throw new Error("aborted");
+      throw new Error("abort");
     }
 
     const message = chunk[0];
