@@ -2,6 +2,7 @@ import { tool, DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { search as searchImpl } from "./search";
 import { readFileTool as readFileToolImpl } from "./read_file_tool";
+import { writeFileTool as writeFileToolImpl } from "./write_file_tool";
 
 const searchTool: DynamicStructuredTool = tool(searchImpl, {
   name: "search",
@@ -19,4 +20,18 @@ const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   }),
 });
 
-export const tools: DynamicStructuredTool[] = [searchTool, readFileTool];
+const writeFileTool: DynamicStructuredTool = tool(writeFileToolImpl, {
+  name: "write_file",
+  description:
+    "Create or overwrite a file in the current directory. Will create parent directories if needed.",
+  schema: z.object({
+    filepath: z.string().describe("The relative path of the file to write."),
+    content: z.string().describe("The content to write to the file."),
+  }),
+});
+
+export const tools: DynamicStructuredTool[] = [
+  searchTool,
+  readFileTool,
+  writeFileTool,
+];
