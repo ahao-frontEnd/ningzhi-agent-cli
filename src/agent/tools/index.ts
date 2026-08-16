@@ -3,6 +3,7 @@ import { z } from "zod";
 import { search as searchImpl } from "./search";
 import { readFileTool as readFileToolImpl } from "./read_file_tool";
 import { writeFileTool as writeFileToolImpl } from "./write_file_tool";
+import { execTool as execToolImpl } from "./exec_tool";
 
 const searchTool: DynamicStructuredTool = tool(searchImpl, {
   name: "search",
@@ -30,8 +31,18 @@ const writeFileTool: DynamicStructuredTool = tool(writeFileToolImpl, {
   }),
 });
 
+const execTool: DynamicStructuredTool = tool(execToolImpl, {
+  name: "exec",
+  description:
+    "Execute a safe shell command in the current directory. Dangerous commands (rm, rmdir, etc.), absolute paths, and parent directory references are blocked.",
+  schema: z.object({
+    command: z.string().describe("The shell command to execute."),
+  }),
+});
+
 export const tools: DynamicStructuredTool[] = [
   searchTool,
   readFileTool,
   writeFileTool,
+  execTool,
 ];
