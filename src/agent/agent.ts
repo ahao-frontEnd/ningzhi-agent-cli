@@ -2,7 +2,7 @@ import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { MemorySaver } from "@langchain/langgraph";
 import * as dotenv from "dotenv";
-import { search } from "./tools";
+import { tools } from "./tools";
 
 dotenv.config();
 
@@ -22,7 +22,7 @@ const checkpointer = new MemorySaver();
 // ── Agent 创建 ────────────────────────────────────────────
 export const agent = createAgent({
   model,
-  tools: [search],
+  tools,
   systemPrompt: "You are a helpful assistant.",
   checkpointer,
 });
