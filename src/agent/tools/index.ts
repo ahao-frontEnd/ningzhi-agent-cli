@@ -4,6 +4,7 @@ import { search as searchImpl } from "./search";
 import { readFileTool as readFileToolImpl } from "./read_file_tool";
 import { writeFileTool as writeFileToolImpl } from "./write_file_tool";
 import { execTool as execToolImpl } from "./exec_tool";
+import { runJsTool as runJsToolImpl } from "./run_js_tool";
 
 const searchTool: DynamicStructuredTool = tool(searchImpl, {
   name: "search",
@@ -40,9 +41,19 @@ const execTool: DynamicStructuredTool = tool(execToolImpl, {
   }),
 });
 
+const runJsTool: DynamicStructuredTool = tool(runJsToolImpl, {
+  name: "run_js",
+  description:
+    "Execute JavaScript code using Node.js in the current directory. Returns stdout/stderr or error messages.",
+  schema: z.object({
+    code: z.string().describe("The JavaScript code to execute."),
+  }),
+});
+
 export const tools: DynamicStructuredTool[] = [
   searchTool,
   readFileTool,
   writeFileTool,
   execTool,
+  runJsTool,
 ];
