@@ -1,18 +1,10 @@
 import { tool, DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { search as searchImpl } from "./search";
 import { readFileTool as readFileToolImpl } from "./read_file_tool";
 import { writeFileTool as writeFileToolImpl } from "./write_file_tool";
 import { execTool as execToolImpl } from "./exec_tool";
 import { runJsTool as runJsToolImpl } from "./run_js_tool";
-
-const searchTool: DynamicStructuredTool = tool(searchImpl, {
-  name: "search",
-  description: "Call to surf the web.",
-  schema: z.object({
-    query: z.string().describe("The query to use in your search."),
-  }),
-});
+import { webSearchTool as webSearchToolImpl } from "./web_search_tool";
 
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
@@ -50,10 +42,19 @@ const runJsTool: DynamicStructuredTool = tool(runJsToolImpl, {
   }),
 });
 
+const webSearchTool: DynamicStructuredTool = tool(webSearchToolImpl, {
+  name: "web_search",
+  description:
+    "Search the web using Tavily. Useful for finding current information, news, and facts.",
+  schema: z.object({
+    query: z.string().describe("The search query."),
+  }),
+});
+
 export const tools: DynamicStructuredTool[] = [
-  searchTool,
   readFileTool,
   writeFileTool,
   execTool,
   runJsTool,
+  webSearchTool,
 ];
