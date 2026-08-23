@@ -7,6 +7,7 @@ import { runJsTool as runJsToolImpl } from "./tools/run_js_tool";
 import { webSearchTool as webSearchToolImpl } from "./tools/web_search_tool";
 import { webFetchTool as webFetchToolImpl } from "./tools/web_fetch_tool";
 import { loadSkillTool as loadSkillToolImpl } from "./tools/load_skill_tool";
+import { runPyTool as runPyToolImpl } from "./tools/run_py_tool";
 
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
@@ -44,6 +45,15 @@ const runJsTool: DynamicStructuredTool = tool(runJsToolImpl, {
   }),
 });
 
+const runPyTool: DynamicStructuredTool = tool(runPyToolImpl, {
+  name: "run_py",
+  description:
+    "Execute Python code using Python3 in the current directory. Returns stdout/stderr or error messages.",
+  schema: z.object({
+    code: z.string().describe("The Python code to execute."),
+  }),
+});
+
 const webSearchTool: DynamicStructuredTool = tool(webSearchToolImpl, {
   name: "web_search",
   description:
@@ -76,6 +86,7 @@ export const tools: DynamicStructuredTool[] = [
   writeFileTool,
   execTool,
   runJsTool,
+  runPyTool,
   webSearchTool,
   webFetchTool,
   loadSkillTool,
