@@ -1,12 +1,12 @@
 import { tool, DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { readFileTool as readFileToolImpl } from "./read_file_tool";
-import { writeFileTool as writeFileToolImpl } from "./write_file_tool";
-import { execTool as execToolImpl } from "./exec_tool";
-import { runJsTool as runJsToolImpl } from "./run_js_tool";
-import { webSearchTool as webSearchToolImpl } from "./web_search_tool";
-import { webFetchTool as webFetchToolImpl } from "./web_fetch_tool";
-import { loadSkillTool as loadSkillToolImpl } from "./load_skill_tool";
+import { readFileTool as readFileToolImpl } from "./tools/read_file_tool";
+import { writeFileTool as writeFileToolImpl } from "./tools/write_file_tool";
+import { execTool as execToolImpl } from "./tools/exec_tool";
+import { runJsTool as runJsToolImpl } from "./tools/run_js_tool";
+import { webSearchTool as webSearchToolImpl } from "./tools/web_search_tool";
+import { webFetchTool as webFetchToolImpl } from "./tools/web_fetch_tool";
+import { loadSkillTool as loadSkillToolImpl } from "./tools/load_skill_tool";
 
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
