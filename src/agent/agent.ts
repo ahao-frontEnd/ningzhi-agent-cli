@@ -3,8 +3,17 @@ import { ChatOpenAI } from "@langchain/openai";
 import { MemorySaver } from "@langchain/langgraph";
 import * as dotenv from "dotenv";
 import { tools } from "./tools";
+import { discoverSkills, getSkillsListText } from "./skills";
 
 dotenv.config();
+
+// ── Skills ────────────────────────────────────────────────
+discoverSkills();
+const skillsText = getSkillsListText();
+const basePrompt = "You are a helpful assistant.";
+const systemPrompt = skillsText
+  ? `${basePrompt}\n\n## Available Skills\n\nYou have access to the following skills. When a user's request matches a skill's description, you MUST call the \`load_skill\` tool to load that skill's full instructions, then follow them.\n\n${skillsText}`
+  : basePrompt;
 
 // ── 模型 ──────────────────────────────────────────────────
 const model = new ChatOpenAI({
@@ -23,7 +32,7 @@ const checkpointer = new MemorySaver();
 export const agent = createAgent({
   model,
   tools,
-  systemPrompt: "You are a helpful assistant.",
+  systemPrompt,
   checkpointer,
 });
 

@@ -6,6 +6,7 @@ import { execTool as execToolImpl } from "./exec_tool";
 import { runJsTool as runJsToolImpl } from "./run_js_tool";
 import { webSearchTool as webSearchToolImpl } from "./web_search_tool";
 import { webFetchTool as webFetchToolImpl } from "./web_fetch_tool";
+import { loadSkillTool as loadSkillToolImpl } from "./load_skill_tool";
 
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
@@ -61,6 +62,15 @@ const webFetchTool: DynamicStructuredTool = tool(webFetchToolImpl, {
   }),
 });
 
+const loadSkillTool: DynamicStructuredTool = tool(loadSkillToolImpl, {
+  name: "load_skill",
+  description:
+    "Load the full content of a skill by its name. Call this when you need to use a specific skill to handle the user request. You can only load one skill at a time.",
+  schema: z.object({
+    name: z.string().describe("The name of the skill to load."),
+  }),
+});
+
 export const tools: DynamicStructuredTool[] = [
   readFileTool,
   writeFileTool,
@@ -68,4 +78,5 @@ export const tools: DynamicStructuredTool[] = [
   runJsTool,
   webSearchTool,
   webFetchTool,
+  loadSkillTool,
 ];

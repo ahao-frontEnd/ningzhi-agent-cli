@@ -9,7 +9,7 @@
     "ningzhi": "dist/agent/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/agent/skills/* dist/agent/skills/",
     "dev": "ts-node src/agent/cli.ts",
     "start": "node dist/agent/cli.js",
     "test": "jest",
