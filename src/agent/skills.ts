@@ -47,13 +47,14 @@ export function discoverSkills(): SkillInfo[] {
   skills.length = 0;
   skillContentMap.clear();
 
-  // 读取当前目录(__dirname)下的所有条目(文件 + 子目录)
-  const entries = readdirSync(__dirname);
+  // 读取当前目录(__dirname/skills)下的所有条目(文件 + 子目录)
+  const skillsDir = join(__dirname, "skills");
+  const entries = readdirSync(skillsDir); // entries 是 skills目录下的所有文件和目录名数组
   for (const entry of entries) {
-    const entryPath = join(__dirname, entry);
+    const entryPath = join(skillsDir, entry);
     try {
       // 只处理目录,跳过文件(如 index.ts 本身)
-      const entryStat = statSync(entryPath);
+      const entryStat = statSync(entryPath); // statSync 用于获取文件或目录的元信息,如是否为目录、大小等
       if (!entryStat.isDirectory()) continue;
 
       // 读取子目录下的 SKILL.md 文件
