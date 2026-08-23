@@ -5,6 +5,7 @@ import { writeFileTool as writeFileToolImpl } from "./write_file_tool";
 import { execTool as execToolImpl } from "./exec_tool";
 import { runJsTool as runJsToolImpl } from "./run_js_tool";
 import { webSearchTool as webSearchToolImpl } from "./web_search_tool";
+import { webFetchTool as webFetchToolImpl } from "./web_fetch_tool";
 
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
@@ -51,10 +52,20 @@ const webSearchTool: DynamicStructuredTool = tool(webSearchToolImpl, {
   }),
 });
 
+const webFetchTool: DynamicStructuredTool = tool(webFetchToolImpl, {
+  name: "web_fetch",
+  description:
+    "Fetch the content of a web page by URL. Returns the raw HTML/text content. Useful when you need to read a specific page.",
+  schema: z.object({
+    url: z.string().describe("The full URL of the web page to fetch."),
+  }),
+});
+
 export const tools: DynamicStructuredTool[] = [
   readFileTool,
   writeFileTool,
   execTool,
   runJsTool,
   webSearchTool,
+  webFetchTool,
 ];
