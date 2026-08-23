@@ -82,5 +82,15 @@ export function loadSkill(name: string): string | null {
 
 // 生成技能列表的 Markdown 文本,用于展示给用户或 LLM
 export function getSkillsListText(): string {
-  return skills.map((s) => `- **${s.name}**: ${s.description}`).join("\n");
+  // 将每个技能格式化为 Markdown 无序列表项: "- **技能名**: 描述"
+  const lines = skills.map((s) => `- **${s.name}**: ${s.description}`);
+  if (skills.length > 0) {
+    // 直接基于当前文件所在目录(__dirname)拼接 skills 路径
+    const skillsDir = join(__dirname, "skills");
+    lines.push("");
+    // 追加 skills 目录位置提示,方便用户知道在哪里新增 skill
+    lines.push(`skills 的目录: ${skillsDir}`);
+    lines.push("如果增加新 skill，也要放在这个目录中");
+  }
+  return lines.join("\n");
 }
