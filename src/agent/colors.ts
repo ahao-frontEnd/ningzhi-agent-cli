@@ -45,6 +45,8 @@ export const color = {
   toolName: (name: string) => ck().yellowBright(name), // yellowBright 黄色高亮
   toolAction: () => ck().gray("called:"), // gray 灰色
   toolArg: (arg: string) => ck().cyan(arg), // cyan 青色
+
+  gray: (text: string) => ck().gray(text),
 };
 
 // 格式化工具调用日志：形如 [Tool] toolName called: detail

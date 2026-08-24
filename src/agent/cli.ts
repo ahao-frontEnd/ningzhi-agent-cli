@@ -13,6 +13,36 @@ function createInterface() {
   });
 }
 
+// 打印启动 Banner：ASCII 艺术标题 + 信息盒 + 使用说明
+async function printBanner(): Promise<void> {
+  // 动态导入 figlet（ASCII 字体）和 boxen（边框盒子），避免首屏加载开销
+  const figlet = (await import("figlet")).default; // figlet 用于生成 ASCII 字体
+  const { default: boxen } = await import("boxen"); // boxen 用于创建带边框的文本框
+  // 读取 package.json 作为信息来源；require 相对路径基于编译后 dist 目录，故回退两层
+  const pkg = require("../../package.json");
+  // 用 Slant 字体渲染包名，并以 banner 色输出
+  console.log(color.banner(figlet.textSync(pkg.name, { font: "Slant" })));
+  // 信息盒内容：每行「字段名: 值」，字段名用灰色弱化
+  const info = [
+    `${color.gray("Description")}: ${pkg.description}`,
+    `${color.gray("Version")}:     ${pkg.version}`,
+    `${color.gray("Author")}:      ${pkg.author}`,
+    `${color.gray("Docs")}:        ${pkg.docs}`,
+  ].join("\n");
+  // boxen 把 info 包成圆角边框盒子，padding=1 留内边距，灰色边框
+  console.log(
+    boxen(info, {
+      padding: 1,
+      borderStyle: "round",
+      borderColor: "gray",
+    }),
+  );
+  // 使用说明：按键与退出命令
+  console.log("Usage:");
+  console.log("  ESC  - Cancel AI request");
+  console.log("  exit - Exit the chat\n");
+}
+
 function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {
     const rl = createInterface();
@@ -64,9 +94,7 @@ async function chat(userInput: string): Promise<void> {
 }
 
 async function interactiveChat(): Promise<void> {
-  console.log(
-    color.banner('=== Agent 聊天控制台 (输入 "exit" 退出) ===') + "\n",
-  );
+  await printBanner();
 
   while (true) {
     const userInput = await prompt(color.userPrefix());

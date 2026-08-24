@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**ningzhi-cli** — a personal AI Agent (inspired by OpenClaw) that runs in the terminal. Planned capabilities: tools, skills, memory, hooks, sub-agents, and MCP servers. Currently in early scaffolding (just a `greet` stub in `src/index.ts`).
+**ningzhiAgentCli** — a personal AI Agent (inspired by OpenClaw) that runs in the terminal. Planned capabilities: tools, skills, memory, hooks, sub-agents, and MCP servers. Currently in early scaffolding (just a `greet` stub in `src/index.ts`).
 
 ## Tech Stack
 

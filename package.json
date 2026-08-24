@@ -1,5 +1,5 @@
 {
-  "name": "ningzhi-cli",
+  "name": "ningzhi_Agent_Cli",
   "version": "0.0.1",
   "description": "A personal AI Agent like OpenClaw, including tools, skills, memory, hook, sub-agent, MCP sever, etc. Run in the terminal.",
   "type": "commonjs",
@@ -18,13 +18,16 @@
     "clean": "rm -rf dist"
   },
   "keywords": [],
-  "author": "",
+  "author": "柠致",
+  "docs": "https://chat.ningzhi2.site/",
   "license": "ISC",
   "dependencies": {
     "@langchain/core": "1.2.9",
     "@langchain/langgraph": "1.4.12",
     "@langchain/openai": "1.5.10",
     "@langchain/tavily": "1.2.0",
+    "boxen": "8.0.1",
+    "figlet": "1.11.4",
     "chalk": "5.6.2",
     "commander": "15.0.0",
     "dotenv": "17.4.2",
@@ -37,6 +40,6 @@
     "jest": "30.4.2",
     "ts-jest": "29.4.12",
     "ts-node": "10.9.2",
-    "typescript": "7.0.2"
+    "typescript": "5.9.3"
   }
 }
