@@ -1,7 +1,9 @@
+import { formatToolLog } from "../colors";
+
 const MAX_LENGTH = 8000;
 
 export async function webFetchTool({ url }: { url: string }): Promise<string> {
-  console.log(`\n[Tool] webFetch called: "${url}"`);
+  console.log(formatToolLog("web_fetch", `"${url}"`));
 
   const trimmed = url.trim();
   if (!trimmed) {

@@ -2,6 +2,7 @@
 import * as readline from "readline";
 import { createCommand } from "./command";
 import { runAgentStream } from "./agent";
+import { initColors, color } from "./colors";
 
 const THREAD_ID = "user-session-1";
 
@@ -25,14 +26,14 @@ function prompt(question: string): Promise<string> {
 async function chat(userInput: string): Promise<void> {
   const rl = createInterface();
 
-  process.stdout.write("\nAI: ");
+  process.stdout.write("\n" + color.aiPrefix());
 
   const controller = new AbortController();
 
   // 监听 ESC 键，中断 AI 请求
   const escListener = (_str: string, key: { name?: string }) => {
     if (key.name === "escape" || key.name === "esc") {
-      process.stdout.write("\n\n[Cancelled]\n");
+      process.stdout.write("\n\n" + color.cancelled("[Cancelled]") + "\n");
       controller.abort();
       rl.close();
     }
@@ -63,26 +64,29 @@ async function chat(userInput: string): Promise<void> {
 }
 
 async function interactiveChat(): Promise<void> {
-  console.log('=== Agent 聊天控制台 (输入 "exit" 退出) ===\n');
+  console.log(
+    color.banner('=== Agent 聊天控制台 (输入 "exit" 退出) ===') + "\n",
+  );
 
   while (true) {
-    const userInput = await prompt("You: ");
+    const userInput = await prompt(color.userPrefix());
 
     if (!userInput.trim()) continue;
     if (userInput.toLowerCase() === "exit") {
-      console.log("再见！");
+      console.log(color.goodbye("再见！"));
       break;
     }
 
     try {
       await chat(userInput);
     } catch (err) {
-      console.error("请求出错:", (err as Error).message);
+      console.error(color.error(`请求出错: ${(err as Error).message}`));
     }
   }
 }
 
 async function main(): Promise<void> {
+  await initColors();
   const program = createCommand();
   // 如果带了命令参数，使用 commander 解析
   // 否则直接进入交互模式（pnpm dev 的情况）

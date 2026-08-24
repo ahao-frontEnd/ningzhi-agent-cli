@@ -1,8 +1,9 @@
 import { readFile } from 'fs/promises'
 import { resolve, relative, isAbsolute } from 'path'
+import { formatToolLog } from "../colors";
 
 export async function readFileTool({ filepath }: { filepath: string }): Promise<string> {
-  console.log(`\n[Tool] readFile called: "${filepath}"`)
+  console.log(formatToolLog("read_file", `"${filepath}"`));
 
   const cwd = process.cwd()
   const targetPath = resolve(cwd, filepath)
