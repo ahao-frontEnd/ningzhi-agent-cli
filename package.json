@@ -24,6 +24,7 @@
   "dependencies": {
     "@langchain/core": "1.2.9",
     "@langchain/langgraph": "1.4.12",
+    "@langchain/langgraph-checkpoint-sqlite": "1.0.4",
     "@langchain/openai": "1.5.10",
     "@langchain/tavily": "1.2.0",
     "boxen": "8.0.1",
@@ -41,5 +42,10 @@
     "ts-jest": "29.4.12",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }

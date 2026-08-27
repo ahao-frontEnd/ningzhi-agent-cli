@@ -1,7 +1,8 @@
 import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
-import { MemorySaver } from "@langchain/langgraph";
+import { SqliteSaver } from "@langchain/langgraph-checkpoint-sqlite";
 import * as dotenv from "dotenv";
+import * as fs from "node:fs";
 import { tools } from "./tools";
 import { discoverSkills, getSkillsListText } from "./skills";
 
@@ -26,7 +27,10 @@ const model = new ChatOpenAI({
 });
 
 // ── 记忆 ──────────────────────────────────────────────────
-const checkpointer = new MemorySaver();
+// recursive 作用： 1. 目录已存在时静默跳过(最重要)不报错。   2. 支持多级路径自动补全父目录：
+// fs.mkdirSync("a/b/c", { recursive: true }); // 一口气把 a、a/b、a/b/c 全建出来
+fs.mkdirSync(".dbData", { recursive: true });
+const checkpointer = SqliteSaver.fromConnString(".dbData/checkpointer.db");
 
 // ── Agent 创建 ────────────────────────────────────────────
 export const agent = createAgent({
