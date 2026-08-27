@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import * as readline from "readline";
+import * as readline from "readline"; // readline 用于处理命令行输入输出，提供交互式界面
 import { createCommand } from "./command";
 import { runAgentStream } from "./agent";
 import { initColors, color } from "./colors";
 
-const THREAD_ID = "user-session-1";
+import { threadId, commands } from "./commands";
 
 function createInterface() {
   return readline.createInterface({
@@ -39,8 +39,13 @@ async function printBanner(): Promise<void> {
   );
   // 使用说明：按键与退出命令
   console.log("Usage:");
-  console.log("  ESC  - Cancel AI request");
-  console.log("  exit - Exit the chat\n");
+  console.log("  ESC       - Cancel AI request");
+  console.log("  exit      - Exit the chat");
+  for (const [name, cmd] of commands) {
+    // padEnd 如果不足8个字符，用空格填充到8个字符
+    console.log(`  /${name.padEnd(8)} - ${cmd.description}`);
+  }
+  console.log();
 }
 
 function prompt(question: string): Promise<string> {
@@ -77,7 +82,7 @@ async function chat(userInput: string): Promise<void> {
       (token: string) => {
         process.stdout.write(token);
       },
-      THREAD_ID,
+      threadId,
       controller.signal,
     );
   } catch (err) {
@@ -103,6 +108,22 @@ async function interactiveChat(): Promise<void> {
     if (userInput.toLowerCase() === "exit") {
       console.log(color.goodbye("再见！"));
       break;
+    }
+    // 以 "/" 开头的输入按内置命令处理（如 /skills），否则交给 AI
+    if (userInput.startsWith("/")) {
+      // 按空白（空格/Tab）拆分，如 "/new abc" -> ["/new", "abc"]
+      const parts = userInput.trim().split(/\s+/);
+      // 去掉首字符 "/" 得到命令名："​/new" -> "new"
+      const cmdName = parts[0].slice(1);
+      // 其余部分作为命令参数传给处理器
+      const args = parts.slice(1);
+      const cmd = commands.get(cmdName);
+      if (cmd) {
+        await cmd.execute(args);
+      } else {
+        console.log(color.error(`Unknown command: ${cmdName}`));
+      }
+      continue; // 命令已处理完，回到循环等待下一次输入
     }
 
     try {

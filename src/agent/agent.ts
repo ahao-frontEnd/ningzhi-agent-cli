@@ -57,7 +57,11 @@ export async function runAgentStream(
 
   const stream = await agent.stream(
     { messages: [{ role: "user", content: userMessage }] },
-    { ...config, streamMode: "messages", signal },
+    {
+      ...config,
+      streamMode: "messages",
+      signal,
+    },
   );
 
   let fullResponse = "";
