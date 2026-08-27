@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 import * as readline from "readline"; // readline 用于处理命令行输入输出，提供交互式界面
-import { createCommand } from "./command";
+import { Command } from "commander";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { runAgentStream } from "./agent";
 import { initColors, color } from "./colors";
 
 import { threadId, commands } from "./commands";
+
+const pkg = JSON.parse(
+  readFileSync(join(__dirname, "../../package.json"), "utf-8"),
+);
 
 function createInterface() {
   return readline.createInterface({
@@ -18,8 +24,6 @@ async function printBanner(): Promise<void> {
   // 动态导入 figlet（ASCII 字体）和 boxen（边框盒子），避免首屏加载开销
   const figlet = (await import("figlet")).default; // figlet 用于生成 ASCII 字体
   const { default: boxen } = await import("boxen"); // boxen 用于创建带边框的文本框
-  // 读取 package.json 作为信息来源；require 相对路径基于编译后 dist 目录，故回退两层
-  const pkg = require("../../package.json");
   // 用 Slant 字体渲染包名，并以 banner 色输出
   console.log(color.banner(figlet.textSync(pkg.name, { font: "Slant" })));
   // 信息盒内容：每行「字段名: 值」，字段名用灰色弱化
@@ -136,7 +140,10 @@ async function interactiveChat(): Promise<void> {
 
 async function main(): Promise<void> {
   await initColors();
-  const program = createCommand();
+
+  const program = new Command();
+  program.name(pkg.name).description(pkg.description).version(pkg.version);
+
   // 如果带了命令参数，使用 commander 解析
   // 否则直接进入交互模式（pnpm dev 的情况）
   if (process.argv.length > 2) {
