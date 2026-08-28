@@ -47,6 +47,7 @@ export const color = {
   toolArg: (arg: string) => ck().cyan(arg), // cyan 青色
 
   gray: (text: string) => ck().gray(text),
+  tokenInfo: (text: string) => ck().gray(text),
 };
 
 // 格式化工具调用日志：形如 [Tool] toolName called: detail

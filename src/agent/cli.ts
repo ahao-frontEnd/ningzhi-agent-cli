@@ -4,6 +4,7 @@ import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runAgentStream } from "./agent";
+import { getModelContextLimit } from "./context";
 import { initColors, color } from "./colors";
 
 import { threadId, commands } from "./commands";
@@ -80,8 +81,10 @@ async function chat(userInput: string): Promise<void> {
   readline.emitKeypressEvents(process.stdin);
   process.stdin.on("keypress", escListener);
 
+  let usageMetadata;
+
   try {
-    await runAgentStream(
+    const result = await runAgentStream(
       userInput,
       (token: string) => {
         process.stdout.write(token);
@@ -89,6 +92,7 @@ async function chat(userInput: string): Promise<void> {
       threadId,
       controller.signal,
     );
+    usageMetadata = result.usageMetadata;
   } catch (err) {
     if ((err as Error).message !== "abort") {
       throw err;
@@ -96,6 +100,18 @@ async function chat(userInput: string): Promise<void> {
   } finally {
     process.stdin.removeListener("keypress", escListener);
     rl.close();
+  }
+
+  // 在一轮对话 结束后打印 token 使用情况
+  if (usageMetadata) {
+    const limit = getModelContextLimit();
+    const percentage = ((usageMetadata.total_tokens / limit) * 100).toFixed(1); // toFixed 表示保留1位小数
+    process.stdout.write(
+      "\n\n" +
+        color.tokenInfo(
+          `Tokens: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentage}%)`,
+        ),
+    );
   }
 
   process.stdout.write("\n\n");
@@ -117,7 +133,7 @@ async function interactiveChat(): Promise<void> {
     if (userInput.startsWith("/")) {
       // 按空白（空格/Tab）拆分，如 "/new abc" -> ["/new", "abc"]
       const parts = userInput.trim().split(/\s+/);
-      // 去掉首字符 "/" 得到命令名："​/new" -> "new"
+      // 去掉首字符 "/" 得到命令名，例如："​/new" -> "new"
       const cmdName = parts[0].slice(1);
       // 其余部分作为命令参数传给处理器
       const args = parts.slice(1);
