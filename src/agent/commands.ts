@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import Table from "cli-table3";
 import { color } from "./colors";
 import { listRecentSessions, threadIdExists } from "./db";
+import { compressContext } from "./agent";
 
 export let threadId: string = randomUUID();
 
@@ -13,6 +14,7 @@ export interface ChatCommand {
 
 export const commands = new Map<string, ChatCommand>();
 
+// 新建会话
 commands.set("new", {
   name: "new",
   description: "Start a new chat session",
@@ -22,6 +24,7 @@ commands.set("new", {
   },
 });
 
+// 列出最近会话
 commands.set("sessions", {
   name: "sessions",
   description: "List recent chat sessions",
@@ -42,6 +45,7 @@ commands.set("sessions", {
   },
 });
 
+// 切换会话
 commands.set("rewind", {
   name: "rewind",
   description: "Restore a chat session by thread_id",
@@ -63,5 +67,21 @@ commands.set("rewind", {
 
     threadId = id;
     console.log(color.goodbye(`\nRestored session ${threadId}.\n`));
+  },
+});
+
+// 压缩上下文
+commands.set("compact", {
+  name: "compact",
+  description: "Compress context for the current session",
+  async execute() {
+    const result = await compressContext(threadId);
+    if (result.didCompress) {
+      console.log(
+        color.goodbye(`\nContext compressed (count: ${result.count}).\n`),
+      );
+    } else {
+      console.log("\nNo context to compress.\n");
+    }
   },
 });
