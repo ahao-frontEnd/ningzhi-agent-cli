@@ -52,29 +52,41 @@ const StateAnnotation = Annotation.Root({
     reducer: messagesStateReducer,
     default: () => [],
   }),
-  // 可选的"模型输入消息"通道：不为空时优先传给模型，便于上层按需裁剪上下文
-  llmInputMessages: Annotation<BaseMessage[]>({
-    // reducer：每次更新都以新传入的值覆盖旧值（把之前的旧状态置空数组，相当于 replace 语义）
-    reducer: (_, update) => messagesStateReducer([], update),
-    default: () => [],
+  contextSummary: Annotation<string | null>({
+    reducer: (_prev, next) => next, // 保持最新摘要
+    default: () => null,
+  }),
+  compressionCount: Annotation<number>({
+    reducer: (_prev, next) => next, // 保持最新压缩次数
+    default: () => 0,
+  }),
+  lastCompressedIndex: Annotation<number>({
+    reducer: (_prev, next) => next, // 保持最新压缩索引
+    default: () => 0,
   }),
 });
 
 type AgentState = typeof StateAnnotation.State;
 
-function getModelInputState(state: AgentState) {
-  const { messages, llmInputMessages, ...rest } = state;
-  if (llmInputMessages != null && llmInputMessages.length > 0) {
-    return { messages: llmInputMessages, ...rest };
-  }
-  return { messages, ...rest };
-}
-
 // ── Graph Nodes ───────────────────────────────────────────
 async function modelRequest(state: AgentState, config: any) {
-  const input = getModelInputState(state);
-  const messages = [new SystemMessage(systemPrompt), ...(input.messages ?? [])];
+  let modelMessages = state.messages ?? [];
+  // 如果有历史摘要，添加到模型输入中
+  if (state.contextSummary && state.lastCompressedIndex > 0) {
+    const summaryMsg = new SystemMessage(
+      `历史对话摘要：\n\n${state.contextSummary}`,
+    );
+    // 从压缩索引开始添加新消息
+    modelMessages = [
+      summaryMsg,
+      ...modelMessages.slice(state.lastCompressedIndex),
+    ];
+  }
+  // 构建模型输入
+  const messages = [new SystemMessage(systemPrompt), ...modelMessages];
+  // 调用模型
   const response = await modelWithTools.invoke(messages, config);
+  // 返回模型响应， response 是一个 AIMessage 对象
   return { messages: [response] };
 }
 
@@ -88,40 +100,46 @@ function shouldContinue(state: AgentState) {
 
 async function toolNode(state: AgentState, config: any) {
   const messages = state.messages;
+  // 提取所有工具调用 ID
   const toolMessageIds = new Set(
     messages
       .filter((msg) => msg.getType() === "tool")
       .map((msg) => (msg as ToolMessage).tool_call_id),
   );
-
+  // 找到最后一个 AI 消息
   let aiMessage: BaseMessage | undefined;
+  // 从后往前遍历消息，找到第一个 AI 消息
   for (let i = messages.length - 1; i >= 0; i--) {
     if (isAIMessage(messages[i])) {
       aiMessage = messages[i];
       break;
     }
   }
-
+  // 如果没有 AI 消息，或者不是 AI 消息，抛出错误
   if (!aiMessage || !isAIMessage(aiMessage)) {
     throw new Error("ToolNode only accepts AIMessages as input.");
   }
-
+  // 过滤出 未处理的工具调用
   const toolCalls =
     aiMessage.tool_calls?.filter(
       (call) => call.id == null || !toolMessageIds.has(call.id),
     ) ?? [];
-
+  // 并行调用工具
   const outputs = await Promise.all(
+    // 对每个工具调用，异步调用工具
     toolCalls.map(async (call) => {
+      // 查找工具
       const tool = tools.find((t) => t.name === call.name);
       try {
         if (!tool) throw new Error(`Tool "${call.name}" not found.`);
+        // 调用工具
         const output = await tool.invoke(
           { ...call, type: "tool_call" },
           config,
         );
         const content =
           typeof output === "string" ? output : JSON.stringify(output);
+        // 返回工具调用消息
         return new ToolMessage({
           content,
           tool_call_id: call.id ?? "",

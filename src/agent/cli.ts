@@ -3,8 +3,8 @@ import * as readline from "readline"; // readline 用于处理命令行输入输
 import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runAgentStream } from "./agent";
-import { getModelContextLimit } from "./context";
+import { runAgentStream, agent } from "./agent";
+import { getModelContextLimit, compressMessages } from "./context";
 import { initColors, color } from "./colors";
 
 import { threadId, commands } from "./commands";
@@ -119,6 +119,50 @@ async function chat(userInput: string): Promise<void> {
           "\n" +
           color.error("建议输入 /new 命令开启新会话"),
       );
+      try {
+        const config = { configurable: { thread_id: threadId } };
+        const currentState = await agent.getState(config);
+        const messages = currentState.values.messages || [];
+        const existingSummary = currentState.values.contextSummary || null;
+        const lastIndex = currentState.values.lastCompressedIndex || 0;
+        const count = currentState.values.compressionCount || 0;
+
+        const recentKeep = 6;
+        // 压缩 Context 时，保留最近 recentKeep 条消息
+        if (messages.length > recentKeep + lastIndex) {
+          const toCompress = messages.slice(
+            lastIndex,
+            messages.length - recentKeep,
+          );
+          const newSummary = await compressMessages(
+            toCompress,
+            existingSummary,
+          );
+
+          await agent.updateState(config, {
+            contextSummary: newSummary,
+            lastCompressedIndex: messages.length - recentKeep,
+            compressionCount: count + 1,
+          });
+
+          const newCount = count + 1;
+          process.stdout.write(
+            "\n" +
+              color.error(
+                `Context 已压缩（第 ${newCount} 次），已保留最近 ${recentKeep} 条消息`,
+              ) +
+              "\n",
+          );
+          if (newCount >= 3) {
+            process.stdout.write(
+              color.error("强烈建议输入 /new 命令开启新会话，以避免信息丢失") +
+                "\n",
+            );
+          }
+        }
+      } catch {
+        // 压缩失败不影响主流程
+      }
     } else {
       process.stdout.write("\n" + color.tokenInfo(tokenText));
     }
