@@ -107,7 +107,7 @@ async function chat(userInput: string): Promise<void> {
     const limit = getModelContextLimit();
     const percentage = (usageMetadata.total_tokens / limit) * 100;
     const percentageStr = percentage.toFixed(1);
-    const tokenText = `Tokens: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentageStr}%)`;
+    const tokenText = `\n\nTokens: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentageStr}%)`;
     if (percentage >= 80) {
       process.stdout.write(
         "\n" +
@@ -122,13 +122,6 @@ async function chat(userInput: string): Promise<void> {
       try {
         const result = await compressContext(threadId);
         if (result.didCompress) {
-          process.stdout.write(
-            "\n" +
-              color.error(
-                `Context 已压缩（第 ${result.count} 次），已保留最近 6 条消息`,
-              ) +
-              "\n",
-          );
           process.stdout.write(
             "\n" +
               color.error(

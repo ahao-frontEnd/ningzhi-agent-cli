@@ -1,10 +1,16 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { BaseMessage, HumanMessage } from "@langchain/core/messages";
+import {
+  BaseMessage,
+  HumanMessage,
+  AIMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 
 const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "moonshot-v1-8k": 8192,
   "moonshot-v1-32k": 32768,
   "moonshot-v1-128k": 131072,
+  //  'kimi-k2.6': 256000,
   "kimi-k2.6": 3000,
 };
 
@@ -80,4 +86,59 @@ export async function compressMessages(
   }
   // 如果已不存在摘要，直接返回新摘要
   return newSummary;
+}
+
+/**
+ * 计算安全的压缩边界索引，确保保留区域内的 tool_calls 和 ToolMessage 配对完整。
+ * 防止 破坏了消息列表的完整度（ ToolMessage 匹配不到 对应的 AIMessage ），导致报错。
+ *
+ * 策略：从 messages.length - minKeep 开始，如果边界切在了 ToolMessage 或其对应的
+ * AIMessage 之后，就把边界往前移动，直到整个工具调用单元都被保留。
+ */
+export function findSafeCompressionIndex(
+  messages: BaseMessage[],
+  minKeep: number,
+): number {
+  // 初始化压缩边界索引为 messages.length - minKeep
+  let index = Math.max(0, messages.length - minKeep);
+  // 收集当前保留区域内所有 ToolMessage 的 tool_call_id
+  const toolCallIdsInKeepRegion = new Set<string>();
+  // 从保留区域开始，向后遍历，收集所有 ToolMessage 的 tool_call_id
+  for (let i = index; i < messages.length; i++) {
+    if (messages[i].type === "tool") {
+      toolCallIdsInKeepRegion.add((messages[i] as ToolMessage).tool_call_id);
+    }
+  }
+  // 往前移动 index，直到所有 toolCallIdsInKeepRegion 都能在保留区域内找到对应的 AIMessage
+  while (index > 0) {
+    // 获取前一条消息
+    const prevMsg = messages[index - 1];
+    // 【1】如果前一条是 ToolMessage，它也会被纳入保留区，所以加入待匹配集合
+    if (prevMsg.type === "tool") {
+      toolCallIdsInKeepRegion.add((prevMsg as ToolMessage).tool_call_id);
+      index--;
+      continue;
+    }
+    // 【2】如果前一条是 AIMessage 且有 tool_calls，检查它 是否匹配 保留区内的 ToolMessage
+    if (AIMessage.isInstance(prevMsg) && prevMsg.tool_calls?.length) {
+      const hasMatchingCall = prevMsg.tool_calls.some(
+        (call) => call.id && toolCallIdsInKeepRegion.has(call.id),
+      );
+      // 如果前一条 AIMessage 匹配了保留区内的 ToolMessage，就保留它
+      if (hasMatchingCall) {
+        // 这个 AIMessage 必须保留，index 前移
+        index--;
+        // 这个 AIMessage 可能还有其他 tool_calls，它们对应的 ToolMessage 也必须在保留区
+        for (const call of prevMsg.tool_calls) {
+          if (call.id) toolCallIdsInKeepRegion.add(call.id);
+        }
+        continue;
+      }
+    }
+    // 【3】如果前一条不是 ToolMessage，并且，前一条不是 AIMessage 或者其 tool_calls 为空/匹配不上，就直接跳出循环
+    break;
+  }
+
+  // 返回最终的压缩边界索引 《===  压缩边界的 结束索引 前移  《===  向前嗅探匹配的 ToolMessage 和 AIMessage 配对完整
+  return index;
 }

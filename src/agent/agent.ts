@@ -21,7 +21,7 @@ import * as fs from "node:fs";
 import { DB_PATH } from "./db";
 import { tools } from "./tools";
 import { discoverSkills, getSkillsListText } from "./skills";
-import { compressMessages } from "./context";
+import { compressMessages, findSafeCompressionIndex } from "./context";
 
 dotenv.config();
 
@@ -72,7 +72,7 @@ type AgentState = typeof StateAnnotation.State;
 // ── Graph Nodes ───────────────────────────────────────────
 async function modelRequest(state: AgentState, config: any) {
   let modelMessages = state.messages ?? [];
-  // 如果有历史摘要，添加到模型输入中
+  // 如果有历史摘要，添加到系统提示词
   if (state.contextSummary && state.lastCompressedIndex > 0) {
     const summaryMsg = new SystemMessage(
       `历史对话摘要：\n\n${state.contextSummary}`,
@@ -251,17 +251,18 @@ export async function compressContext(
   const count = currentState.values.compressionCount || 0;
 
   const recentKeep = 6;
-  // 如果当前消息数小于等于保留区域 + 最后压缩索引，直接返回
-  if (messages.length <= recentKeep + lastIndex) {
+  const safeIndex = findSafeCompressionIndex(messages, recentKeep);
+  if (safeIndex <= lastIndex) {
     return { didCompress: false, count };
   }
-
-  const toCompress = messages.slice(lastIndex, messages.length - recentKeep);
+  // 从 lastCompressedIndex 开始，压缩到 safeIndex
+  // safeIndex 是最近保留的索引，压缩到 safeIndex 之前的消息
+  const toCompress = messages.slice(lastIndex, safeIndex);
   const newSummary = await compressMessages(toCompress, existingSummary);
 
   await agent.updateState(config, {
     contextSummary: newSummary,
-    lastCompressedIndex: messages.length - recentKeep,
+    lastCompressedIndex: safeIndex,
     compressionCount: count + 1,
   });
 
