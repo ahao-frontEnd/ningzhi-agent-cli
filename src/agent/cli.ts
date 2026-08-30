@@ -105,13 +105,23 @@ async function chat(userInput: string): Promise<void> {
   // 在一轮对话 结束后打印 token 使用情况
   if (usageMetadata) {
     const limit = getModelContextLimit();
-    const percentage = ((usageMetadata.total_tokens / limit) * 100).toFixed(1); // toFixed 表示保留1位小数
-    process.stdout.write(
-      "\n\n" +
-        color.tokenInfo(
-          `Tokens: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentage}%)`,
-        ),
-    );
+    const percentage = (usageMetadata.total_tokens / limit) * 100;
+    const percentageStr = percentage.toFixed(1);
+    const tokenText = `Tokens: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentageStr}%)`;
+    if (percentage >= 80) {
+      process.stdout.write(
+        "\n" +
+          color.error(tokenText) +
+          "\n" +
+          color.error(
+            "警告：Context window 接近大模型接口上限，即将压缩 Context，可能会丢失信息",
+          ) +
+          "\n" +
+          color.error("建议输入 /new 命令开启新会话"),
+      );
+    } else {
+      process.stdout.write("\n" + color.tokenInfo(tokenText));
+    }
   }
 
   process.stdout.write("\n\n");
