@@ -1,7 +1,21 @@
-import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { SqliteSaver } from "@langchain/langgraph-checkpoint-sqlite";
-import { type UsageMetadata } from "@langchain/core/messages";
+import {
+  type UsageMetadata,
+  type BaseMessage,
+  SystemMessage,
+  isAIMessage,
+  HumanMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
+import {
+  StateGraph,
+  Annotation,
+  START,
+  END,
+  CompiledStateGraph,
+} from "@langchain/langgraph";
+import { messagesStateReducer } from "@langchain/langgraph";
 import * as dotenv from "dotenv";
 import * as fs from "node:fs";
 import { DB_PATH } from "./db";
@@ -28,6 +42,104 @@ const model = new ChatOpenAI({
   streaming: true,
 });
 
+const modelWithTools = model.bindTools(tools);
+
+// ── State Schema ──────────────────────────────────────────
+const StateAnnotation = Annotation.Root({
+  // 完整对话消息列表（含 HumanMessage / AIMessage / ToolMessage 等）
+  messages: Annotation<BaseMessage[]>({
+    // reducer：合并状态更新时使用 langgraph 内置的消息合并器（按 id 去重、追加新消息、支持删除/替换）
+    reducer: messagesStateReducer,
+    default: () => [],
+  }),
+  // 可选的"模型输入消息"通道：不为空时优先传给模型，便于上层按需裁剪上下文
+  llmInputMessages: Annotation<BaseMessage[]>({
+    // reducer：每次更新都以新传入的值覆盖旧值（把之前的旧状态置空数组，相当于 replace 语义）
+    reducer: (_, update) => messagesStateReducer([], update),
+    default: () => [],
+  }),
+});
+
+type AgentState = typeof StateAnnotation.State;
+
+function getModelInputState(state: AgentState) {
+  const { messages, llmInputMessages, ...rest } = state;
+  if (llmInputMessages != null && llmInputMessages.length > 0) {
+    return { messages: llmInputMessages, ...rest };
+  }
+  return { messages, ...rest };
+}
+
+// ── Graph Nodes ───────────────────────────────────────────
+async function modelRequest(state: AgentState, config: any) {
+  const input = getModelInputState(state);
+  const messages = [new SystemMessage(systemPrompt), ...(input.messages ?? [])];
+  const response = await modelWithTools.invoke(messages, config);
+  return { messages: [response] };
+}
+
+function shouldContinue(state: AgentState) {
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (isAIMessage(lastMessage) && lastMessage.tool_calls?.length) {
+    return "tools";
+  }
+  return END;
+}
+
+async function toolNode(state: AgentState, config: any) {
+  const messages = state.messages;
+  const toolMessageIds = new Set(
+    messages
+      .filter((msg) => msg.getType() === "tool")
+      .map((msg) => (msg as ToolMessage).tool_call_id),
+  );
+
+  let aiMessage: BaseMessage | undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (isAIMessage(messages[i])) {
+      aiMessage = messages[i];
+      break;
+    }
+  }
+
+  if (!aiMessage || !isAIMessage(aiMessage)) {
+    throw new Error("ToolNode only accepts AIMessages as input.");
+  }
+
+  const toolCalls =
+    aiMessage.tool_calls?.filter(
+      (call) => call.id == null || !toolMessageIds.has(call.id),
+    ) ?? [];
+
+  const outputs = await Promise.all(
+    toolCalls.map(async (call) => {
+      const tool = tools.find((t) => t.name === call.name);
+      try {
+        if (!tool) throw new Error(`Tool "${call.name}" not found.`);
+        const output = await tool.invoke(
+          { ...call, type: "tool_call" },
+          config,
+        );
+        const content =
+          typeof output === "string" ? output : JSON.stringify(output);
+        return new ToolMessage({
+          content,
+          tool_call_id: call.id ?? "",
+          name: call.name,
+        });
+      } catch (e: any) {
+        return new ToolMessage({
+          content: `Error: ${e.message}\n Please fix your mistakes.`,
+          tool_call_id: call.id ?? "",
+          name: call.name,
+        });
+      }
+    }),
+  );
+
+  return { messages: outputs };
+}
+
 // ── 记忆 ──────────────────────────────────────────────────
 // recursive 作用： 1. 目录已存在时静默跳过(最重要)不报错。   2. 支持多级路径自动补全父目录：
 // fs.mkdirSync("a/b/c", { recursive: true }); // 一口气把 a、a/b、a/b/c 全建出来
@@ -35,10 +147,17 @@ fs.mkdirSync(".dbData", { recursive: true });
 const checkpointer = SqliteSaver.fromConnString(DB_PATH);
 
 // ── Agent 创建 ────────────────────────────────────────────
-export const agent = createAgent({
-  model,
-  tools,
-  systemPrompt,
+const workflow = new StateGraph(StateAnnotation)
+  .addNode("model_request", modelRequest)
+  .addNode("tools", toolNode)
+  .addEdge(START, "model_request")
+  .addConditionalEdges("model_request", shouldContinue, {
+    tools: "tools",
+    [END]: END,
+  })
+  .addEdge("tools", "model_request");
+
+export const agent: CompiledStateGraph<any, any, any> = workflow.compile({
   checkpointer,
 });
 
@@ -58,7 +177,7 @@ export async function runAgentStream(
   const config = { configurable: { thread_id: threadId } };
 
   const stream = await agent.stream(
-    { messages: [{ role: "user", content: userMessage }] },
+    { messages: [new HumanMessage(userMessage)] },
     {
       ...config,
       streamMode: "messages",
