@@ -21,6 +21,7 @@ import * as fs from "node:fs";
 import { DB_PATH } from "./db";
 import { tools } from "./tools";
 import { discoverSkills, getSkillsListText } from "./skills";
+import { compressMessages } from "./context";
 
 dotenv.config();
 
@@ -236,4 +237,33 @@ export async function runAgentStream(
   }
 
   return { response: fullResponse, usageMetadata };
+}
+
+// 压缩上下文
+export async function compressContext(
+  threadId: string,
+): Promise<{ didCompress: boolean; count: number }> {
+  const config = { configurable: { thread_id: threadId } };
+  const currentState = await agent.getState(config);
+  const messages = currentState.values.messages || [];
+  const existingSummary = currentState.values.contextSummary || null;
+  const lastIndex = currentState.values.lastCompressedIndex || 0;
+  const count = currentState.values.compressionCount || 0;
+
+  const recentKeep = 6;
+  // 如果当前消息数小于等于保留区域 + 最后压缩索引，直接返回
+  if (messages.length <= recentKeep + lastIndex) {
+    return { didCompress: false, count };
+  }
+
+  const toCompress = messages.slice(lastIndex, messages.length - recentKeep);
+  const newSummary = await compressMessages(toCompress, existingSummary);
+
+  await agent.updateState(config, {
+    contextSummary: newSummary,
+    lastCompressedIndex: messages.length - recentKeep,
+    compressionCount: count + 1,
+  });
+
+  return { didCompress: true, count: count + 1 };
 }
