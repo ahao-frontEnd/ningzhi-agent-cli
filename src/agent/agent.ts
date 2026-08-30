@@ -28,7 +28,8 @@ dotenv.config();
 // ── Skills ────────────────────────────────────────────────
 discoverSkills();
 const skillsText = getSkillsListText();
-const basePrompt = "You are a helpful assistant.";
+const basePrompt =
+  "You are a helpful assistant. Note that before answering any questions related to timeliness, first check the latest date and do not use your own expired date. For example, execute a 'new Date()' JS script to query";
 const systemPrompt = skillsText
   ? `${basePrompt}\n\n## Available Skills\n\nYou have access to the following skills. When a user's request matches a skill's description, you MUST call the \`load_skill\` tool to load that skill's full instructions, then follow them.\n\n${skillsText}`
   : basePrompt;
