@@ -85,7 +85,12 @@ async function modelRequest(state: AgentState, config: any) {
       ...modelMessages.slice(state.lastCompressedIndex),
     ];
   }
-  // 构建模型输入
+  // 简化工具调用消息，只保留工具名
+  modelMessages = simplifyToolMessages(modelMessages);
+  // 上下文压缩的最后一道防线
+  // 只保留最近 500 条消息， 极端场景，一般达不到，是为了防止上下文爆炸，不过一般不加这个逻辑也可以正常工作
+  modelMessages = modelMessages.slice(-500);
+  // 构建模型输入，包含系统提示词和简化后的消息
   const messages = [new SystemMessage(systemPrompt), ...modelMessages];
   // 调用模型
   const response = await modelWithTools.invoke(messages, config);
@@ -138,7 +143,7 @@ async function toolNode(state: AgentState, config: any) {
       try {
         if (!tool) throw new Error(`Tool "${call.name}" not found.`);
         // 在调用工具之前统一打印工具调用日志（只打印工具名）
-        console.log(formatToolLog(call.name));
+        console.log(formatToolLog(call.name, JSON.stringify(call.args)));
         // 调用工具
         const output = await tool.invoke(
           { ...call, type: "tool_call" },
@@ -274,4 +279,34 @@ export async function compressContext(
   });
 
   return { didCompress: true, count: count + 1 };
+}
+
+/**
+ * 简化工具调用消息，只保留最近 3 个
+ * @param messages - 原始消息数组
+ * @returns 简化后的消息数组
+ */
+function simplifyToolMessages(messages: BaseMessage[]): BaseMessage[] {
+  const toolIndices: number[] = [];
+  // 找到所有工具调用消息的索引
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].type === "tool") {
+      toolIndices.push(i);
+    }
+  }
+  // 只保留最近 3 个工具调用消息
+  const recentToolIndices = new Set(toolIndices.slice(-3));
+  // 遍历所有消息，简化工具调用消息
+  return messages.map((msg, i) => {
+    if (msg.type !== "tool") return msg;
+    if (recentToolIndices.has(i)) return msg;
+    const toolMsg = msg as ToolMessage;
+    if (toolMsg.name === "read_file") return msg;
+    // 简化工具调用消息，只保留工具名
+    return new ToolMessage({
+      content: `[Previous: used ${toolMsg.name}]`,
+      tool_call_id: toolMsg.tool_call_id,
+      name: toolMsg.name,
+    });
+  });
 }

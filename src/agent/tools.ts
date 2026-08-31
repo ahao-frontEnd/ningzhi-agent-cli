@@ -117,6 +117,7 @@ ${content.slice(0, 2000)}
 </persisted-output>`;
 }
 
+// 导出所有工具
 export const tools: DynamicStructuredTool[] = [
   readFileTool,
   writeFileTool,
