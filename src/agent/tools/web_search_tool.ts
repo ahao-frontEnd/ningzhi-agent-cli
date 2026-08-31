@@ -1,13 +1,10 @@
 import { TavilySearch } from "@langchain/tavily";
-import { formatToolLog } from "../colors";
 
 export async function webSearchTool({
   query,
 }: {
   query: string;
 }): Promise<string> {
-  console.log(formatToolLog("web_search", `"${query}"`));
-
   const tavilySearch = new TavilySearch({
     maxResults: 2,
     topic: "general",

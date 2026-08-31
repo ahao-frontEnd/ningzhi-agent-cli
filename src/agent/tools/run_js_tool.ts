@@ -1,12 +1,9 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { formatToolLog } from "../colors";
 
 const execAsync = promisify(exec);
 
 export async function runJsTool({ code }: { code: string }): Promise<string> {
-  console.log(formatToolLog("run_js"));
-
   const trimmed = code.trim();
   if (!trimmed) {
     return "Error: code is empty.";

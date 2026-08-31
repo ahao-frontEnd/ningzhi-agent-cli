@@ -1,6 +1,5 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { formatToolLog } from "../colors";
 
 const execAsync = promisify(exec);
 
@@ -20,8 +19,6 @@ export async function execTool({
 }: {
   command: string;
 }): Promise<string> {
-  console.log(formatToolLog("exec", `"${command}"`));
-
   const trimmed = command.trim();
   if (!trimmed) {
     return "Error: command is empty.";

@@ -1,7 +1,6 @@
 import { writeFile, mkdir } from "fs/promises";
 import { dirname } from "path";
 import { resolve, relative, isAbsolute } from "path";
-import { formatToolLog } from "../colors";
 
 export async function writeFileTool({
   filepath,
@@ -10,8 +9,6 @@ export async function writeFileTool({
   filepath: string;
   content: string;
 }): Promise<string> {
-  console.log(formatToolLog("write_file", `"${filepath}"`));
-
   const cwd = process.cwd();
   const targetPath = resolve(cwd, filepath);
 

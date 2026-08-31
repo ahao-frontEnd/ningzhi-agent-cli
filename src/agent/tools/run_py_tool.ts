@@ -1,13 +1,10 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { formatToolLog } from "../colors";
 
 // 将 exec 转为 Promise 形式,便于用 await 调用
 const execAsync = promisify(exec);
 
 export async function runPyTool({ code }: { code: string }): Promise<string> {
-  console.log(formatToolLog("run_py"));
-
   // 去除首尾空白,若代码为空直接返回错误
   const trimmed = code.trim();
   if (!trimmed) {

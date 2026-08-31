@@ -22,6 +22,7 @@ import { DB_PATH } from "./db";
 import { tools } from "./tools";
 import { discoverSkills, getSkillsListText } from "./skills";
 import { compressMessages, findSafeCompressionIndex } from "./context";
+import { formatToolLog } from "./colors";
 
 dotenv.config();
 
@@ -134,6 +135,8 @@ async function toolNode(state: AgentState, config: any) {
       const tool = tools.find((t) => t.name === call.name);
       try {
         if (!tool) throw new Error(`Tool "${call.name}" not found.`);
+        // 在调用工具之前统一打印工具调用日志（只打印工具名）
+        console.log(formatToolLog(call.name));
         // 调用工具
         const output = await tool.invoke(
           { ...call, type: "tool_call" },
