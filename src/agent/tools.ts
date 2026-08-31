@@ -1,5 +1,7 @@
 import { tool, DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
+import { mkdir, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { readFileTool as readFileToolImpl } from "./tools/read_file_tool";
 import { writeFileTool as writeFileToolImpl } from "./tools/write_file_tool";
 import { execTool as execToolImpl } from "./tools/exec_tool";
@@ -80,6 +82,40 @@ const loadSkillTool: DynamicStructuredTool = tool(loadSkillToolImpl, {
     name: z.string().describe("The name of the skill to load."),
   }),
 });
+
+/**
+ * 可能持久化输出，如果输出长度超过最大限制则保存到文件
+ * @param {string} content - 要持久化的输出内容
+ * @param {string} toolCallId - 工具调用 ID，用于生成文件名
+ * @returns {Promise<string>} - 包含持久化信息的 HTML 片段
+ */
+export async function maybePersistedOutput(
+  content: string,
+  toolCallId: string,
+): Promise<string> {
+  const MAX_LENGTH = 50000;
+  if (content.length <= MAX_LENGTH) {
+    return content;
+  }
+
+  const id = toolCallId || Math.random().toString(36).slice(2, 9);
+  const dir = resolve(process.cwd(), "./.tool_output");
+  const filePath = resolve(dir, `tool_output_${id}.txt`);
+
+  await mkdir(dir, { recursive: true });
+  await writeFile(filePath, content, "utf-8");
+
+  return `<persisted-output>
+Output too large (${(content.length / 1024).toFixed(1)}KB).
+Full output saved to: ${filePath}
+
+If you need the complete content, it is recommended to read it in segments.
+
+Preview (first 2KB):
+${content.slice(0, 2000)}
+...
+</persisted-output>`;
+}
 
 export const tools: DynamicStructuredTool[] = [
   readFileTool,

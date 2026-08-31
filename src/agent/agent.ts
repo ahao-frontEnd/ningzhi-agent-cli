@@ -19,7 +19,7 @@ import { messagesStateReducer } from "@langchain/langgraph";
 import * as dotenv from "dotenv";
 import * as fs from "node:fs";
 import { DB_PATH } from "./db";
-import { tools } from "./tools";
+import { tools, maybePersistedOutput } from "./tools";
 import { discoverSkills, getSkillsListText } from "./skills";
 import { compressMessages, findSafeCompressionIndex } from "./context";
 import { formatToolLog } from "./colors";
@@ -122,7 +122,9 @@ async function toolNode(state: AgentState, config: any) {
   if (!aiMessage || !isAIMessage(aiMessage)) {
     throw new Error("ToolNode only accepts AIMessages as input.");
   }
-  // 过滤出 未处理的工具调用
+  // 过滤出 未处理的工具调用, 就是 id 为 null 或不在 toolMessageIds 中的
+  // 如果 ai message 某个工具调用的 id 找不到对应的 ToolMessage，说明它还没被执行过，
+  // 正常是走 !toolMessageIds.has(call.id) 这个逻辑
   const toolCalls =
     aiMessage.tool_calls?.filter(
       (call) => call.id == null || !toolMessageIds.has(call.id),
@@ -144,9 +146,10 @@ async function toolNode(state: AgentState, config: any) {
         );
         const content =
           typeof output === "string" ? output : JSON.stringify(output);
+        const finalContent = await maybePersistedOutput(content, call.id ?? "");
         // 返回工具调用消息
         return new ToolMessage({
-          content,
+          content: finalContent,
           tool_call_id: call.id ?? "",
           name: call.name,
         });
