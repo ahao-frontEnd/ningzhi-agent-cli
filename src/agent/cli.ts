@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { runAgentStream, compressContext } from "./agent";
 import { getModelContextLimit } from "./context";
 import { initColors, color } from "./colors";
+import { initDb } from "./db";
 
 import { threadId, commands } from "./commands";
 
@@ -186,6 +187,7 @@ async function interactiveChat(): Promise<void> {
 
 async function main(): Promise<void> {
   await initColors();
+  initDb();
 
   const program = new Command();
   program.name(pkg.name).description(pkg.description).version(pkg.version);

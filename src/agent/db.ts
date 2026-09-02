@@ -30,6 +30,30 @@ export function threadIdExists(threadId: string): boolean {
   }
 }
 
+export function initDb(): void {
+  const db = new Database(DB_PATH);
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        keywords TEXT, 
+        importance INTEGER DEFAULT 3,
+        session_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * 列出最近 20 个会话（线程）
+ * @returns 会话列表
+ */
 export function listRecentSessions(): SessionRow[] {
   const db = new Database(DB_PATH);
   try {
