@@ -10,6 +10,7 @@ import { webSearchTool as webSearchToolImpl } from "./tools/web_search_tool";
 import { webFetchTool as webFetchToolImpl } from "./tools/web_fetch_tool";
 import { loadSkillTool as loadSkillToolImpl } from "./tools/load_skill_tool";
 import { runPyTool as runPyToolImpl } from "./tools/run_py_tool";
+import { memoryCreateTool as memoryCreateToolImpl } from "./tools/memory_create_tool";
 
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
@@ -83,6 +84,30 @@ const loadSkillTool: DynamicStructuredTool = tool(loadSkillToolImpl, {
   }),
 });
 
+const memoryCreateTool: DynamicStructuredTool = tool(memoryCreateToolImpl, {
+  name: "memory_create",
+  description:
+    "Save a piece of memory to the database. Use this when the user shares something worth remembering, such as a personal fact, event, preference, or skill.",
+  schema: z.object({
+    type: z
+      .enum(["fact", "event", "preference", "skill"])
+      .describe("The type of memory to save."),
+    content: z
+      .string()
+      .describe("The natural language description of the memory."),
+    keywords: z
+      .array(z.string())
+      .optional()
+      .describe("Optional keywords for retrieval, as an array of strings."),
+    importance: z
+      .number()
+      .min(1)
+      .max(5)
+      .optional()
+      .describe("Importance level from 1 to 5. Default is 3."),
+  }),
+});
+
 /**
  * 可能持久化输出，如果输出长度超过最大限制则保存到文件
  * @param {string} content - 要持久化的输出内容
@@ -127,4 +152,5 @@ export const tools: DynamicStructuredTool[] = [
   webSearchTool,
   webFetchTool,
   loadSkillTool,
+  memoryCreateTool,
 ];
