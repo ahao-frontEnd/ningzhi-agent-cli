@@ -8,12 +8,87 @@ export const DB_PATH = join(process.cwd(), ".dbData", "checkpointer.db");
 // recursive 多层路径创建，且目录已存在不报错，幂等性
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
+// 会话行
 export interface SessionRow {
   thread_id: string;
   last_question: string;
   last_ts: string;
 }
 
+// 记忆搜索结果
+export interface MemorySearchResult {
+  id: number;
+  type: string;
+  content: string;
+  keywords: string | null;
+  importance: number;
+  session_id: string | null;
+  created_at: string;
+  updated_at: string;
+  final_score: number;
+}
+
+// 搜索记忆
+export function searchMemories(
+  query: string[],
+  limit = 10,
+): MemorySearchResult[] {
+  const trimmedQueries = query.map((q) => q.trim()).filter((q) => q.length > 0);
+  if (trimmedQueries.length === 0) {
+    return [];
+  }
+  const queryStr = trimmedQueries.join(" OR ").replace(/-/g, " ");
+
+  const db = new Database(DB_PATH);
+  try {
+    const rows = db
+      .prepare(
+        `
+      WITH ranked AS (
+        SELECT
+          m.*,
+          -bm25(memory_fts, 10.0, 5.0) AS relevance_score,
+          (m.importance * 0.3) AS importance_score,
+          (
+            1.0 / (
+              1.0 +
+              ((strftime('%s','now') - strftime('%s', m.updated_at)) / 86400.0)
+            )
+          ) AS time_score
+        FROM memory_fts
+        JOIN memory m ON m.id = memory_fts.rowid
+        WHERE memory_fts MATCH ?
+      )
+      SELECT *,
+        (
+          relevance_score * 0.6 +
+          importance_score * 0.3 +
+          time_score * 0.1
+        ) AS final_score
+      FROM ranked
+      ORDER BY final_score DESC
+      LIMIT ?
+    `,
+      )
+      .all(queryStr, limit) as Array<Record<string, unknown>>;
+
+    return rows.map((r) => ({
+      id: r.id as number,
+      type: r.type as string,
+      content: r.content as string,
+      keywords: r.keywords as string | null,
+      importance: r.importance as number,
+      session_id: r.session_id as string | null,
+      created_at: r.created_at as string,
+      updated_at: r.updated_at as string,
+      final_score: r.final_score as number,
+    }));
+  } finally {
+    db.close();
+  }
+}
+
+// 检查会话id是否存在
 export function threadIdExists(threadId: string): boolean {
   const db = new Database(DB_PATH);
   try {
@@ -30,6 +105,7 @@ export function threadIdExists(threadId: string): boolean {
   }
 }
 
+// 初始化数据库
 export function initDb(): void {
   const db = new Database(DB_PATH);
   try {
@@ -53,6 +129,38 @@ export function initDb(): void {
         keywords,
         content='memory', content_rowid='id'
       )
+    `);
+
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS memory_fts_insert AFTER INSERT ON memory BEGIN
+        INSERT INTO memory_fts(rowid, content, keywords)
+        VALUES (new.id, new.content, new.keywords);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS memory_fts_delete AFTER DELETE ON memory BEGIN
+        INSERT INTO memory_fts(memory_fts, rowid, content, keywords)
+        VALUES ('delete', old.id, old.content, old.keywords);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS memory_fts_update AFTER UPDATE ON memory BEGIN
+        INSERT INTO memory_fts(memory_fts, rowid, content, keywords)
+        VALUES ('delete', old.id, old.content, old.keywords);
+        INSERT INTO memory_fts(rowid, content, keywords)
+        VALUES (new.id, new.content, new.keywords);
+      END;
+    `);
+
+    // ========== 全量补索引 ==========
+    // 触发器只对"创建之后"的 INSERT 生效，
+    // 之前已存在的 memory 数据不会自动进入 memory_fts，导致 MATCH 返回空。
+    // 这里把 memory 中尚未在 memory_fts 建立索引的条目一次性回填。
+    db.exec(`
+      INSERT INTO memory_fts(rowid, content, keywords)
+      SELECT m.id, m.content, m.keywords
+      FROM memory m
+      WHERE NOT EXISTS (
+        SELECT 1 FROM memory_fts f WHERE f.rowid = m.id
+      );
     `);
   } finally {
     db.close();

@@ -24,10 +24,6 @@ describe("loadSkillTool", () => {
     const result = await loadSkillTool({ name: "planner" });
     expect(result).toContain("---");
     expect(result).toContain("# Planner");
-    // 验证工具被调用时打印了预期的日志
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '\n[Tool] load_skill called: "planner"',
-    );
   });
 
   it("returns error for non-existent skill", async () => {

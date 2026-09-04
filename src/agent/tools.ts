@@ -1,7 +1,9 @@
 import { tool, DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
+
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+
 import { readFileTool as readFileToolImpl } from "./tools/read_file_tool";
 import { writeFileTool as writeFileToolImpl } from "./tools/write_file_tool";
 import { execTool as execToolImpl } from "./tools/exec_tool";
@@ -11,6 +13,7 @@ import { webFetchTool as webFetchToolImpl } from "./tools/web_fetch_tool";
 import { loadSkillTool as loadSkillToolImpl } from "./tools/load_skill_tool";
 import { runPyTool as runPyToolImpl } from "./tools/run_py_tool";
 import { memoryCreateTool as memoryCreateToolImpl } from "./tools/memory_create_tool";
+import { memoryRetrieveTool as memoryRetrieveToolImpl } from "./tools/memory_retrieve_tool";
 
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
@@ -108,6 +111,21 @@ const memoryCreateTool: DynamicStructuredTool = tool(memoryCreateToolImpl, {
   }),
 });
 
+const memoryRetrieveTool: DynamicStructuredTool = tool(memoryRetrieveToolImpl, {
+  name: "memory_retrieve",
+  description:
+    "Retrieve relevant memories from the database using full-text search. Use this when the user asks about something that may have been remembered before but is not in the current conversation context. Extract a few key keywords from the question and pass them as the query.",
+  schema: z.object({
+    query: z.array(z.string()).describe("Keywords to search for in memories."),
+    limit: z
+      .number()
+      .min(1)
+      .max(50)
+      .optional()
+      .describe("Maximum number of memories to return. Default is 10."),
+  }),
+});
+
 /**
  * 可能持久化输出，如果输出长度超过最大限制则保存到文件
  * @param {string} content - 要持久化的输出内容
@@ -153,4 +171,5 @@ export const tools: DynamicStructuredTool[] = [
   webFetchTool,
   loadSkillTool,
   memoryCreateTool,
+  memoryRetrieveTool,
 ];
