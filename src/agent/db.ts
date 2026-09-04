@@ -45,6 +45,15 @@ export function initDb(): void {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    // SQLite 的 FTS（Full-Text Search）模块是一种虚拟表模块，支持高效的全文搜索功能。
+    // FTS5 是 SQLite 最新的全文搜索引擎，提供了强大的功能和灵活性。
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+        content,
+        keywords,
+        content='memory', content_rowid='id'
+      )
+    `);
   } finally {
     db.close();
   }
