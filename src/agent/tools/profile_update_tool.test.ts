@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 describe("profileUpdateTool", () => {
   const testDir = join(process.cwd(), "test_profile_update_tool_dir");
-  const dataDir = join(testDir, "data");
+  const dataDir = join(testDir, ".data");
   const profilePath = join(dataDir, "profile.md");
 
   beforeAll(async () => {
