@@ -29,11 +29,18 @@ dotenv.config();
 // ── Skills ────────────────────────────────────────────────
 discoverSkills();
 const skillsText = getSkillsListText();
+// 基础提示
 const basePrompt =
   "You are a helpful assistant. Note that before answering any questions related to timeliness, first check the latest date and do not use your own expired date. For example, execute a 'new Date()' JS script to query";
+// 记忆管理规则
+const memoryPrompt = `## Memory Management Rules
+
+- When deleting a memory, first use memory_retrieve to find its id, then call memory_delete with that id. If no matching memory is found, politely inform the user.
+- When updating a memory, first delete the old memory, then create a new one.`;
+// 组装系统提示词
 const systemPrompt = skillsText
-  ? `${basePrompt}\n\n## Available Skills\n\nYou have access to the following skills. When a user's request matches a skill's description, you MUST call the \`load_skill\` tool to load that skill's full instructions, then follow them.\n\n${skillsText}`
-  : basePrompt;
+  ? `${basePrompt}\n\n${memoryPrompt}\n\n## Available Skills\n\nYou have access to the following skills. When a user's request matches a skill's description, you MUST call the \`load_skill\` tool to load that skill's full instructions, then follow them.\n\n${skillsText}`
+  : `${basePrompt}\n\n${memoryPrompt}`;
 
 // ── 模型 ──────────────────────────────────────────────────
 const model = new ChatOpenAI({

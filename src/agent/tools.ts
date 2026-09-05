@@ -14,7 +14,9 @@ import { loadSkillTool as loadSkillToolImpl } from "./tools/load_skill_tool";
 import { runPyTool as runPyToolImpl } from "./tools/run_py_tool";
 import { memoryCreateTool as memoryCreateToolImpl } from "./tools/memory_create_tool";
 import { memoryRetrieveTool as memoryRetrieveToolImpl } from "./tools/memory_retrieve_tool";
+import { memoryDeleteTool as memoryDeleteToolImpl } from "./tools/memory_delete_tool";
 
+// 读取文件工具
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   name: "read_file",
   description: "Read the contents of a file in the current directory.",
@@ -23,6 +25,7 @@ const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
   }),
 });
 
+// 写入文件工具
 const writeFileTool: DynamicStructuredTool = tool(writeFileToolImpl, {
   name: "write_file",
   description:
@@ -33,6 +36,7 @@ const writeFileTool: DynamicStructuredTool = tool(writeFileToolImpl, {
   }),
 });
 
+// 执行命令工具
 const execTool: DynamicStructuredTool = tool(execToolImpl, {
   name: "exec",
   description:
@@ -42,6 +46,7 @@ const execTool: DynamicStructuredTool = tool(execToolImpl, {
   }),
 });
 
+// 执行JavaScript代码工具
 const runJsTool: DynamicStructuredTool = tool(runJsToolImpl, {
   name: "run_js",
   description:
@@ -51,6 +56,7 @@ const runJsTool: DynamicStructuredTool = tool(runJsToolImpl, {
   }),
 });
 
+// 执行Python代码工具
 const runPyTool: DynamicStructuredTool = tool(runPyToolImpl, {
   name: "run_py",
   description:
@@ -60,6 +66,7 @@ const runPyTool: DynamicStructuredTool = tool(runPyToolImpl, {
   }),
 });
 
+// 网络搜索工具
 const webSearchTool: DynamicStructuredTool = tool(webSearchToolImpl, {
   name: "web_search",
   description:
@@ -69,6 +76,7 @@ const webSearchTool: DynamicStructuredTool = tool(webSearchToolImpl, {
   }),
 });
 
+// 网络获取工具
 const webFetchTool: DynamicStructuredTool = tool(webFetchToolImpl, {
   name: "web_fetch",
   description:
@@ -78,6 +86,7 @@ const webFetchTool: DynamicStructuredTool = tool(webFetchToolImpl, {
   }),
 });
 
+// 加载技能工具
 const loadSkillTool: DynamicStructuredTool = tool(loadSkillToolImpl, {
   name: "load_skill",
   description:
@@ -87,6 +96,7 @@ const loadSkillTool: DynamicStructuredTool = tool(loadSkillToolImpl, {
   }),
 });
 
+// 创建记忆工具
 const memoryCreateTool: DynamicStructuredTool = tool(memoryCreateToolImpl, {
   name: "memory_create",
   description:
@@ -111,6 +121,7 @@ const memoryCreateTool: DynamicStructuredTool = tool(memoryCreateToolImpl, {
   }),
 });
 
+// 检索记忆工具
 const memoryRetrieveTool: DynamicStructuredTool = tool(memoryRetrieveToolImpl, {
   name: "memory_retrieve",
   description:
@@ -123,6 +134,16 @@ const memoryRetrieveTool: DynamicStructuredTool = tool(memoryRetrieveToolImpl, {
       .max(50)
       .optional()
       .describe("Maximum number of memories to return. Default is 10."),
+  }),
+});
+
+// 删除记忆工具
+const memoryDeleteTool: DynamicStructuredTool = tool(memoryDeleteToolImpl, {
+  name: "memory_delete",
+  description:
+    "Delete a memory from the database by its id. Use this when the user wants to forget or remove a specific memory.",
+  schema: z.object({
+    id: z.number().int().positive().describe("The id of the memory to delete."),
   }),
 });
 
@@ -172,4 +193,5 @@ export const tools: DynamicStructuredTool[] = [
   loadSkillTool,
   memoryCreateTool,
   memoryRetrieveTool,
+  memoryDeleteTool,
 ];

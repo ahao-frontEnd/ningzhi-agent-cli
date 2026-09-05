@@ -149,19 +149,6 @@ export function initDb(): void {
         VALUES (new.id, new.content, new.keywords);
       END;
     `);
-
-    // ========== 全量补索引 ==========
-    // 触发器只对"创建之后"的 INSERT 生效，
-    // 之前已存在的 memory 数据不会自动进入 memory_fts，导致 MATCH 返回空。
-    // 这里把 memory 中尚未在 memory_fts 建立索引的条目一次性回填。
-    db.exec(`
-      INSERT INTO memory_fts(rowid, content, keywords)
-      SELECT m.id, m.content, m.keywords
-      FROM memory m
-      WHERE NOT EXISTS (
-        SELECT 1 FROM memory_fts f WHERE f.rowid = m.id
-      );
-    `);
   } finally {
     db.close();
   }
