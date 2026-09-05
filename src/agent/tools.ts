@@ -17,149 +17,215 @@ import { memoryRetrieveTool as memoryRetrieveToolImpl } from "./tools/memory_ret
 import { memoryDeleteTool as memoryDeleteToolImpl } from "./tools/memory_delete_tool";
 import { profileUpdateTool as profileUpdateToolImpl } from "./tools/profile_update_tool";
 
+type NingzhiTool = DynamicStructuredTool & { permission_level: string };
+
+function createNingzhiTool(
+  impl: (...args: any[]) => any,
+  options: any,
+  permission_level: string,
+): NingzhiTool {
+  const t = tool(impl, options) as unknown as NingzhiTool;
+  t.permission_level = permission_level;
+  return t;
+}
+
 // 读取文件工具
-const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
-  name: "read_file",
-  description: "Read the contents of a file in the current directory.",
-  schema: z.object({
-    filepath: z.string().describe("The relative path of the file to read."),
-  }),
-});
+const readFileTool = createNingzhiTool(
+  readFileToolImpl,
+  {
+    name: "read_file",
+    description: "Read the contents of a file in the current directory.",
+    schema: z.object({
+      filepath: z.string().describe("The relative path of the file to read."),
+    }),
+  },
+  "read",
+);
 
 // 写入文件工具
-const writeFileTool: DynamicStructuredTool = tool(writeFileToolImpl, {
-  name: "write_file",
-  description:
-    "Create or overwrite a file in the current directory. Will create parent directories if needed.",
-  schema: z.object({
-    filepath: z.string().describe("The relative path of the file to write."),
-    content: z.string().describe("The content to write to the file."),
-  }),
-});
+const writeFileTool = createNingzhiTool(
+  writeFileToolImpl,
+  {
+    name: "write_file",
+    description:
+      "Create or overwrite a file in the current directory. Will create parent directories if needed.",
+    schema: z.object({
+      filepath: z.string().describe("The relative path of the file to write."),
+      content: z.string().describe("The content to write to the file."),
+    }),
+  },
+  "write",
+);
 
 // 执行命令工具
-const execTool: DynamicStructuredTool = tool(execToolImpl, {
-  name: "exec",
-  description:
-    "Execute a safe shell command in the current directory. Dangerous commands (rm, rmdir, etc.), absolute paths, and parent directory references are blocked.",
-  schema: z.object({
-    command: z.string().describe("The shell command to execute."),
-  }),
-});
+const execTool = createNingzhiTool(
+  execToolImpl,
+  {
+    name: "exec",
+    description:
+      "Execute a safe shell command in the current directory. Dangerous commands (rm, rmdir, etc.), absolute paths, and parent directory references are blocked.",
+    schema: z.object({
+      command: z.string().describe("The shell command to execute."),
+    }),
+  },
+  "exec",
+);
 
 // 执行JavaScript代码工具
-const runJsTool: DynamicStructuredTool = tool(runJsToolImpl, {
-  name: "run_js",
-  description:
-    "Execute JavaScript code using Node.js in the current directory. Returns stdout/stderr or error messages.",
-  schema: z.object({
-    code: z.string().describe("The JavaScript code to execute."),
-  }),
-});
+const runJsTool = createNingzhiTool(
+  runJsToolImpl,
+  {
+    name: "run_js",
+    description:
+      "Execute JavaScript code using Node.js in the current directory. Returns stdout/stderr or error messages.",
+    schema: z.object({
+      code: z.string().describe("The JavaScript code to execute."),
+    }),
+  },
+  "exec",
+);
 
 // 执行Python代码工具
-const runPyTool: DynamicStructuredTool = tool(runPyToolImpl, {
-  name: "run_py",
-  description:
-    "Execute Python code using Python3 in the current directory. Returns stdout/stderr or error messages.",
-  schema: z.object({
-    code: z.string().describe("The Python code to execute."),
-  }),
-});
+const runPyTool = createNingzhiTool(
+  runPyToolImpl,
+  {
+    name: "run_py",
+    description:
+      "Execute Python code using Python3 in the current directory. Returns stdout/stderr or error messages.",
+    schema: z.object({
+      code: z.string().describe("The Python code to execute."),
+    }),
+  },
+  "exec",
+);
 
 // 网络搜索工具
-const webSearchTool: DynamicStructuredTool = tool(webSearchToolImpl, {
-  name: "web_search",
-  description:
-    "Search the web using Tavily. Useful for finding current information, news, and facts.",
-  schema: z.object({
-    query: z.string().describe("The search query."),
-  }),
-});
+const webSearchTool = createNingzhiTool(
+  webSearchToolImpl,
+  {
+    name: "web_search",
+    description:
+      "Search the web using Tavily. Useful for finding current information, news, and facts.",
+    schema: z.object({
+      query: z.string().describe("The search query."),
+    }),
+  },
+  "network",
+);
 
 // 网络获取工具
-const webFetchTool: DynamicStructuredTool = tool(webFetchToolImpl, {
-  name: "web_fetch",
-  description:
-    "Fetch the content of a web page by URL. Returns the raw HTML/text content. Useful when you need to read a specific page.",
-  schema: z.object({
-    url: z.string().describe("The full URL of the web page to fetch."),
-  }),
-});
+const webFetchTool = createNingzhiTool(
+  webFetchToolImpl,
+  {
+    name: "web_fetch",
+    description:
+      "Fetch the content of a web page by URL. Returns the raw HTML/text content. Useful when you need to read a specific page.",
+    schema: z.object({
+      url: z.string().describe("The full URL of the web page to fetch."),
+    }),
+  },
+  "network",
+);
 
 // 加载技能工具
-const loadSkillTool: DynamicStructuredTool = tool(loadSkillToolImpl, {
-  name: "load_skill",
-  description:
-    "Load the full content of a skill by its name. Call this when you need to use a specific skill to handle the user request. You can only load one skill at a time.",
-  schema: z.object({
-    name: z.string().describe("The name of the skill to load."),
-  }),
-});
+const loadSkillTool = createNingzhiTool(
+  loadSkillToolImpl,
+  {
+    name: "load_skill",
+    description:
+      "Load the full content of a skill by its name. Call this when you need to use a specific skill to handle the user request. You can only load one skill at a time.",
+    schema: z.object({
+      name: z.string().describe("The name of the skill to load."),
+    }),
+  },
+  "read",
+);
 
 // 创建记忆工具
-const memoryCreateTool: DynamicStructuredTool = tool(memoryCreateToolImpl, {
-  name: "memory_create",
-  description:
-    "Save a piece of memory to the database. Use this when the user shares something worth remembering, such as a personal fact, event, preference, or skill.",
-  schema: z.object({
-    type: z
-      .enum(["fact", "event", "preference", "skill"])
-      .describe("The type of memory to save."),
-    content: z
-      .string()
-      .describe("The natural language description of the memory."),
-    keywords: z
-      .array(z.string())
-      .optional()
-      .describe("Optional keywords for retrieval, as an array of strings."),
-    importance: z
-      .number()
-      .min(1)
-      .max(5)
-      .optional()
-      .describe("Importance level from 1 to 5. Default is 3."),
-  }),
-});
+const memoryCreateTool = createNingzhiTool(
+  memoryCreateToolImpl,
+  {
+    name: "memory_create",
+    description:
+      "Save a piece of memory to the database. Use this when the user shares something worth remembering, such as a personal fact, event, preference, or skill.",
+    schema: z.object({
+      type: z
+        .enum(["fact", "event", "preference", "skill"])
+        .describe("The type of memory to save."),
+      content: z
+        .string()
+        .describe("The natural language description of the memory."),
+      keywords: z
+        .array(z.string())
+        .optional()
+        .describe("Optional keywords for retrieval, as an array of strings."),
+      importance: z
+        .number()
+        .min(1)
+        .max(5)
+        .optional()
+        .describe("Importance level from 1 to 5. Default is 3."),
+    }),
+  },
+  "db",
+);
 
 // 检索记忆工具
-const memoryRetrieveTool: DynamicStructuredTool = tool(memoryRetrieveToolImpl, {
-  name: "memory_retrieve",
-  description:
-    "Retrieve relevant memories from the database using full-text search. Use this when the user asks about something that may have been remembered before but is not in the current conversation context. Extract a few key keywords from the question and pass them as the query.",
-  schema: z.object({
-    query: z.array(z.string()).describe("Keywords to search for in memories."),
-    limit: z
-      .number()
-      .min(1)
-      .max(50)
-      .optional()
-      .describe("Maximum number of memories to return. Default is 10."),
-  }),
-});
+const memoryRetrieveTool = createNingzhiTool(
+  memoryRetrieveToolImpl,
+  {
+    name: "memory_retrieve",
+    description:
+      "Retrieve relevant memories from the database using full-text search. Use this when the user asks about something that may have been remembered before but is not in the current conversation context. Extract a few key keywords from the question and pass them as the query.",
+    schema: z.object({
+      query: z
+        .array(z.string())
+        .describe("Keywords to search for in memories."),
+      limit: z
+        .number()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe("Maximum number of memories to return. Default is 10."),
+    }),
+  },
+  "db",
+);
 
 // 删除记忆工具
-const memoryDeleteTool: DynamicStructuredTool = tool(memoryDeleteToolImpl, {
-  name: "memory_delete",
-  description:
-    "Delete a memory from the database by its id. Use this when the user wants to forget or remove a specific memory.",
-  schema: z.object({
-    id: z.number().int().positive().describe("The id of the memory to delete."),
-  }),
-});
+const memoryDeleteTool = createNingzhiTool(
+  memoryDeleteToolImpl,
+  {
+    name: "memory_delete",
+    description:
+      "Delete a memory from the database by its id. Use this when the user wants to forget or remove a specific memory.",
+    schema: z.object({
+      id: z
+        .number()
+        .int()
+        .positive()
+        .describe("The id of the memory to delete."),
+    }),
+  },
+  "db",
+);
 
-const profileUpdateTool: DynamicStructuredTool = tool(profileUpdateToolImpl, {
-  name: "profile_update",
-  description:
-    "Update the user's profile information. When providing new profile info, also include all other fields mentioned in <profile_info> — all profile information must be updated together.",
-  schema: z.object({
-    profile_info: z
-      .string()
-      .describe(
-        "The complete profile information in markdown format, including all existing and updated fields.",
-      ),
-  }),
-});
+const profileUpdateTool = createNingzhiTool(
+  profileUpdateToolImpl,
+  {
+    name: "profile_update",
+    description:
+      "Update the user's profile information. When providing new profile info, also include all other fields mentioned in <profile_info> — all profile information must be updated together.",
+    schema: z.object({
+      profile_info: z
+        .string()
+        .describe(
+          "The complete profile information in markdown format, including all existing and updated fields.",
+        ),
+    }),
+  },
+  "write",
+);
 
 /**
  * 可能持久化输出，如果输出长度超过最大限制则保存到文件
@@ -175,14 +241,14 @@ export async function maybePersistedOutput(
   if (content.length <= MAX_LENGTH) {
     return content;
   }
-
+  // 生成唯一文件名
   const id = toolCallId || Math.random().toString(36).slice(2, 9);
   const dir = resolve(process.cwd(), "./.tool_output");
   const filePath = resolve(dir, `tool_output_${id}.txt`);
-
+  // 确保目录存在
   await mkdir(dir, { recursive: true });
   await writeFile(filePath, content, "utf-8");
-
+  // 返回 提示词 片段
   return `<persisted-output>
 Output too large (${(content.length / 1024).toFixed(1)}KB).
 Full output saved to: ${filePath}
@@ -196,7 +262,7 @@ ${content.slice(0, 2000)}
 }
 
 // 导出所有工具
-export const tools: DynamicStructuredTool[] = [
+export const tools: NingzhiTool[] = [
   readFileTool,
   writeFileTool,
   execTool,
