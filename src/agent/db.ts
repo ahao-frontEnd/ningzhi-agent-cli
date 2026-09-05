@@ -178,26 +178,33 @@ export function listRecentSessions(): SessionRow[] {
     const rows = db
       .prepare(
         `
-      -- CTE：按线程分组，取每个线程 checkpoint 中最新的事件时间（$.ts）
-      WITH thread_last_ts AS (
+      -- CTE：取每个线程最新的 checkpoint 及其 ts
+      WITH thread_last AS (
         SELECT
           thread_id,
-          MAX(json_extract(CAST(checkpoint AS TEXT), '$.ts')) AS last_ts
-        FROM checkpoints
+          MAX(json_extract(CAST(checkpoint AS TEXT), '$.ts')) AS last_ts,
+          (SELECT CAST(c2.checkpoint AS TEXT)
+           FROM checkpoints c2
+           WHERE c2.thread_id = c.thread_id
+           ORDER BY json_extract(CAST(c2.checkpoint AS TEXT), '$.ts') DESC
+           LIMIT 1) AS last_checkpoint
+        FROM checkpoints c
         GROUP BY thread_id
       )
       SELECT
         t.thread_id,
-        -- 子查询：取该线程 messages 通道中最近一条 user 消息的内容作为"最后提问"
-        (SELECT json_extract(CAST(w.value AS TEXT), '$[0].content')
-         FROM writes w
-         WHERE w.thread_id = t.thread_id
-           AND w.channel = 'messages'
-           AND json_extract(CAST(w.value AS TEXT), '$[0].role') = 'user'
-         ORDER BY w.checkpoint_id DESC
+        -- 从最新 checkpoint 的 messages 数组中，取最后一条用户消息的内容
+        (SELECT COALESCE(
+                  json_extract(j.value, '$.kwargs.content'),
+                  json_extract(j.value, '$.content')
+                )
+         FROM json_each(json_extract(t.last_checkpoint, '$.channel_values.messages')) j
+         WHERE json_extract(j.value, '$.id[2]') = 'HumanMessage'
+            OR json_extract(j.value, '$.type') = 'human'
+         ORDER BY CAST(j.key AS INTEGER) DESC
          LIMIT 1) AS last_question,
         t.last_ts
-      FROM thread_last_ts t
+      FROM thread_last t
       ORDER BY t.last_ts DESC  -- 按最后活跃时间倒序（最新的在前）
       LIMIT 20                 -- 只取最近 20 个会话
     `,
