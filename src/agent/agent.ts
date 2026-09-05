@@ -14,6 +14,8 @@ import {
   START,
   END,
   CompiledStateGraph,
+  interrupt,
+  Command,
 } from "@langchain/langgraph";
 import { messagesStateReducer } from "@langchain/langgraph";
 import * as dotenv from "dotenv";
@@ -125,6 +127,26 @@ async function toolNode(state: AgentState, config: any) {
     aiMessage.tool_calls?.filter(
       (call) => call.id == null || !toolMessageIds.has(call.id),
     ) ?? [];
+
+  if (toolCalls.length === 0) {
+    return { messages: [] };
+  }
+
+  // 检查用户是否同意执行工具调用
+  const result = interrupt({ toolCalls });
+  if (result !== "approved") {
+    return {
+      messages: toolCalls.map(
+        (call) =>
+          new ToolMessage({
+            content: "Tool execution was denied by the user.",
+            tool_call_id: call.id ?? "",
+            name: call.name,
+          }),
+      ),
+    };
+  }
+
   // 并行调用工具
   const outputs = await Promise.all(
     // 对每个工具调用，异步调用工具
@@ -187,58 +209,79 @@ export const agent: CompiledStateGraph<any, any, any> = workflow.compile({
  * 以流式方式运行 agent，将 token 逐个回调给调用方
  * @param {string} userMessage - 当前用户输入（历史已由 checkpointer 自动续接）
  * @param {Function} onToken   - 每个 token 到来时的回调 (token: string) => void
+ * @param {Function} onToolConfirmation - tool 调用前的确认回调，返回 true 则执行，false 则拒绝
  * @param {string} threadId    - 会话 ID，相同 ID 自动续上历史记录
  * @returns {Promise<{ response: string; usageMetadata?: UsageMetadata }>}  完整的 AI 回复文本及 token 使用信息
  */
 export async function runAgentStream(
   userMessage: string,
   onToken: (token: string) => void,
+  onToolConfirmation: (toolCalls: any[]) => Promise<boolean>,
   threadId: string = "default-session",
   signal?: AbortSignal,
 ): Promise<{ response: string; usageMetadata?: UsageMetadata }> {
   const config = { configurable: { thread_id: threadId } };
 
-  const stream = await agent.stream(
-    { messages: [new HumanMessage(userMessage)] },
-    {
+  let fullResponse = "";
+  let usageMetadata: UsageMetadata | undefined;
+  let input: any = { messages: [new HumanMessage(userMessage)] };
+
+  while (true) {
+    const stream = await agent.stream(input, {
       ...config,
       streamMode: "messages",
       signal,
-    },
-  );
-
-  let fullResponse = "";
-  let usageMetadata: UsageMetadata | undefined;
-
-  for await (const chunk of stream as any) {
-    if (signal?.aborted) {
-      throw new Error("abort");
+    });
+    // for await...of 遍历的是 异步可迭代对象（AsyncIterable）
+    // 每次 next() 返回的是 Promise，需要 await 才能拿到下一项。 LangGraph 的 agent.stream(...) 返回一个 AsyncGenerator。它的特点是：
+    // 不是一次性把结果给你，而是 LLM 每生成一个 token（或一小批 token），就 yield 一次。 必须等网络/模型把这块数据推送过来才能继续，这正是 await 存在的意义。
+    for await (const chunk of stream as any) {
+      if (signal?.aborted) {
+        throw new Error("abort");
+      }
+      const message = chunk[0];
+      const metadata = chunk[1];
+      // streamMode: "messages" 下，工具调用等非模型节点产生的消息也会出现在流里，
+      // 通过 metadata.langgraph_node 过滤，只保留模型节点（model_request）输出的 token
+      if (metadata?.langgraph_node !== "model_request") continue;
+      // 从 message 中提取 token 使用信息
+      const msgUsage = (message as any).usage_metadata;
+      if (msgUsage) {
+        usageMetadata = msgUsage;
+      }
+      // AIMessageChunk 的 content 在 message.content 属性上，不在 kwargs.content
+      const content: string =
+        (message as any).content ?? (message as any).kwargs?.content ?? "";
+      const toolCallChunks = (message as any).tool_call_chunks ?? [];
+      // 过滤掉工具调用消息，只保留模型节点（model_request）输出的 token
+      if (!content || toolCallChunks.length > 0) continue;
+      // 回调 token 给调用方
+      onToken(content);
+      fullResponse += content;
     }
 
-    const message = chunk[0];
-    const metadata = chunk[1];
+    // 流消费完后，取出当前会话状态，检查是否卡在 interrupt 上
+    // （toolNode 里的 interrupt({ toolCalls }) 会让图执行暂停，等待外部 resume）
+    const state = await agent.getState(config);
+    // 找到处于中断状态的任务（其 interrupts 数组非空）
+    const interruptedTask = state.tasks?.find(
+      (t: any) => t.interrupts?.length > 0,
+    );
+    // 没有中断任务，说明本轮已正常走到 END，退出 while 循环
+    if (!interruptedTask) break;
 
-    // streamMode: "messages" 下，工具调用等非模型节点产生的消息也会出现在流里，
-    // 通过 metadata.langgraph_node 过滤，只保留模型节点（model_request）输出的 token
-    if (metadata?.langgraph_node !== "model_request") continue;
-
-    const msgUsage = (message as any).usage_metadata;
-    if (msgUsage) {
-      usageMetadata = msgUsage;
-    }
-
-    // AIMessageChunk 的 content 在 message.content 属性上，不在 kwargs.content
-    const content: string =
-      (message as any).content ?? (message as any).kwargs?.content ?? "";
-    const toolCallChunks = (message as any).tool_call_chunks ?? [];
-
-    // 跳过两类非用户可见的 chunk：空内容 chunk，以及模型发起工具调用的 chunk（工具调用指令不是回复文本）
-    if (!content || toolCallChunks.length > 0) continue;
-
-    onToken(content);
-    fullResponse += content;
+    // =====》 有需要用户确认的工具调用，就会有中断任务  《===== 工具节点中断，来到 model_request 节点
+    // 把待确认的工具调用清单回调给调用方，由用户决定是否执行
+    const confirmed = await onToolConfirmation(
+      interruptedTask.interrupts[0].value.toolCalls,
+    );
+    // 用 Command({ resume }) 把用户的决定送回给正在等待的 interrupt()   =====》  发送给 toolNode
+    // 从 toolNode 里 interrupt() 调用的那一行继续往下执行
+    // 对应 toolNode 中 `const result = interrupt({ toolCalls })` 的返回值
+    input = new Command({ resume: confirmed ? "approved" : "denied" });
   }
 
+  // 返回完整回复及 token 使用信息
   return { response: fullResponse, usageMetadata };
 }
 

@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runAgentStream, compressContext } from "./agent";
 import { getModelContextLimit } from "./context";
-import { initColors, color } from "./colors";
+import { initColors, color, formatToolLog } from "./colors";
 import { initDb } from "./db";
 
 import { threadId, commands } from "./commands";
@@ -89,6 +89,18 @@ async function chat(userInput: string): Promise<void> {
       userInput,
       (token: string) => {
         process.stdout.write(token);
+      },
+      async (toolCalls) => {
+        for (const call of toolCalls) {
+          console.log(formatToolLog(call.name, JSON.stringify(call.args)));
+        }
+        const answer = await new Promise<string>((resolve) => {
+          rl.question("确认执行以上工具? (y/n): ", resolve);
+        });
+        return (
+          answer.trim().toLowerCase() === "y" ||
+          answer.trim().toLowerCase() === "yes"
+        );
       },
       threadId,
       controller.signal,
