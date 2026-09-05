@@ -3,17 +3,6 @@ import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
-const DANGEROUS_COMMANDS = [
-  "rm",
-  "rmdir",
-  "del",
-  "rd",
-  "mkfs",
-  "dd",
-  "format",
-  "shred",
-];
-
 export async function execTool({
   command,
 }: {
@@ -22,13 +11,6 @@ export async function execTool({
   const trimmed = command.trim();
   if (!trimmed) {
     return "Error: command is empty.";
-  }
-
-  // 提取命令的第一个单词（命令名），用于与危险命令黑名单比对；统一转小写以做大小写无关匹配
-  // /\s+/ 按空白符拆分命令字符串
-  const firstWord = trimmed.split(/\s+/)[0].toLowerCase();
-  if (DANGEROUS_COMMANDS.includes(firstWord)) {
-    return `Error: command "${firstWord}" is not allowed.`;
   }
 
   if (trimmed.includes("..")) {

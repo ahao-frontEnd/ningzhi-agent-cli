@@ -45,18 +45,6 @@ describe("execTool", () => {
     expect(result).toBe("Error: command is empty.");
   });
 
-  it("returns error for rm command", async () => {
-    const result = await execTool({
-      command: "rm test_exec_tool_dir/sample.txt",
-    });
-    expect(result).toBe('Error: command "rm" is not allowed.');
-  });
-
-  it("returns error for rmdir command", async () => {
-    const result = await execTool({ command: "rmdir test_exec_tool_dir" });
-    expect(result).toBe('Error: command "rmdir" is not allowed.');
-  });
-
   it("returns error for parent directory reference", async () => {
     const result = await execTool({ command: "cat ../package.json" });
     expect(result).toBe(
