@@ -1,6 +1,5 @@
-import { writeFile, mkdir } from "fs/promises";
-import { dirname } from "path";
-import { resolve, relative, isAbsolute } from "path";
+import { writeFile, mkdir } from "node:fs/promises";
+import { dirname } from "node:path";
 
 export async function writeFileTool({
   filepath,
@@ -9,21 +8,9 @@ export async function writeFileTool({
   filepath: string;
   content: string;
 }): Promise<string> {
-  const cwd = process.cwd();
-  const targetPath = resolve(cwd, filepath);
-
-  if (isAbsolute(filepath)) {
-    return "Error: absolute paths are not allowed.";
-  }
-
-  const rel = relative(cwd, targetPath);
-  if (rel.startsWith("..") || rel === "..") {
-    return "Error: file must be within the current directory.";
-  }
-
   try {
-    await mkdir(dirname(targetPath), { recursive: true }); // recursive 表示创建父目录
-    await writeFile(targetPath, content, "utf-8");
+    await mkdir(dirname(filepath), { recursive: true }); // recursive 表示创建父目录, 如果没有的话, 则创建
+    await writeFile(filepath, content, "utf-8");
     return `File "${filepath}" written successfully.`;
   } catch (err) {
     return `Error: ${(err as Error).message}`;

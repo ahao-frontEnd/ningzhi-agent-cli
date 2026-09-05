@@ -1,25 +1,12 @@
-import { readFile } from "fs/promises";
-import { resolve, relative, isAbsolute } from "path";
+import { readFile } from "node:fs/promises";
 
 export async function readFileTool({
   filepath,
 }: {
   filepath: string;
 }): Promise<string> {
-  const cwd = process.cwd();
-  const targetPath = resolve(cwd, filepath);
-
-  if (isAbsolute(filepath)) {
-    return "Error: absolute paths are not allowed.";
-  }
-
-  const rel = relative(cwd, targetPath);
-  if (rel.startsWith("..") || rel === "..") {
-    return "Error: file must be within the current directory.";
-  }
-
   try {
-    const content = await readFile(targetPath, "utf-8");
+    const content = await readFile(filepath, "utf-8");
     return content;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {

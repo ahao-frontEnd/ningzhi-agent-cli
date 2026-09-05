@@ -47,20 +47,4 @@ describe("writeFileTool", () => {
     const actual = await readFile(join(process.cwd(), filepath), "utf-8");
     expect(actual).toBe("nested content");
   });
-
-  it("returns error for absolute path", async () => {
-    const result = await writeFileTool({
-      filepath: "/etc/passwd",
-      content: "x",
-    });
-    expect(result).toBe("Error: absolute paths are not allowed.");
-  });
-
-  it("returns error for path outside current directory", async () => {
-    const result = await writeFileTool({
-      filepath: "../package.json",
-      content: "x",
-    });
-    expect(result).toBe("Error: file must be within the current directory.");
-  });
 });

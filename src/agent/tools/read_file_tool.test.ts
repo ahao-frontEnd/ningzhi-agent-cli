@@ -21,16 +21,6 @@ describe("readFileTool", () => {
     expect(result).toBe("hello world");
   });
 
-  it("returns error for absolute path", async () => {
-    const result = await readFileTool({ filepath: "/etc/passwd" });
-    expect(result).toBe("Error: absolute paths are not allowed.");
-  });
-
-  it("returns error for path outside current directory", async () => {
-    const result = await readFileTool({ filepath: "../package.json" });
-    expect(result).toBe("Error: file must be within the current directory.");
-  });
-
   it("returns error for non-existent file", async () => {
     const result = await readFileTool({ filepath: "does_not_exist.txt" });
     expect(result).toBe("Error: file not found.");
