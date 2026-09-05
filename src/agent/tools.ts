@@ -15,6 +15,7 @@ import { runPyTool as runPyToolImpl } from "./tools/run_py_tool";
 import { memoryCreateTool as memoryCreateToolImpl } from "./tools/memory_create_tool";
 import { memoryRetrieveTool as memoryRetrieveToolImpl } from "./tools/memory_retrieve_tool";
 import { memoryDeleteTool as memoryDeleteToolImpl } from "./tools/memory_delete_tool";
+import { profileUpdateTool as profileUpdateToolImpl } from "./tools/profile_update_tool";
 
 // 读取文件工具
 const readFileTool: DynamicStructuredTool = tool(readFileToolImpl, {
@@ -147,6 +148,19 @@ const memoryDeleteTool: DynamicStructuredTool = tool(memoryDeleteToolImpl, {
   }),
 });
 
+const profileUpdateTool: DynamicStructuredTool = tool(profileUpdateToolImpl, {
+  name: "profile_update",
+  description:
+    "Update the user's profile information. When providing new profile info, also include all other fields mentioned in <profile_info> — all profile information must be updated together.",
+  schema: z.object({
+    profile_info: z
+      .string()
+      .describe(
+        "The complete profile information in markdown format, including all existing and updated fields.",
+      ),
+  }),
+});
+
 /**
  * 可能持久化输出，如果输出长度超过最大限制则保存到文件
  * @param {string} content - 要持久化的输出内容
@@ -194,4 +208,5 @@ export const tools: DynamicStructuredTool[] = [
   memoryCreateTool,
   memoryRetrieveTool,
   memoryDeleteTool,
+  profileUpdateTool,
 ];
