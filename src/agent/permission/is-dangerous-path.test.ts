@@ -34,10 +34,6 @@ describe("isDangerousPath", () => {
       expect(isDangerousPath(relativePath)).toBe(true);
     });
 
-    it("matches ~/Documents", () => {
-      expect(isDangerousPath("~/Documents/tax-return.pdf")).toBe(true);
-    });
-
     it("matches glob pattern ~/.env.*", () => {
       expect(isDangerousPath("~/.env.local")).toBe(true);
       expect(isDangerousPath("~/.env.production")).toBe(true);

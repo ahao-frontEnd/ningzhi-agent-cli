@@ -18,13 +18,17 @@ import {
   Command,
 } from "@langchain/langgraph";
 import { messagesStateReducer } from "@langchain/langgraph";
+
 import * as dotenv from "dotenv";
 import * as fs from "node:fs";
+
 import { DB_PATH } from "./db";
 import { tools, maybePersistedOutput } from "./tools";
+
 import { compressMessages, findSafeCompressionIndex } from "./context";
 import { formatToolLog } from "./colors";
 import { systemPrompt } from "./prompt";
+import { checkToolPermission } from "./permission";
 
 dotenv.config();
 
@@ -132,56 +136,86 @@ async function toolNode(state: AgentState, config: any) {
     return { messages: [] };
   }
 
-  // 检查用户是否同意执行工具调用
-  const result = interrupt({ toolCalls });
-  if (result !== "approved") {
-    return {
-      messages: toolCalls.map(
-        (call) =>
-          new ToolMessage({
-            content: "Tool execution was denied by the user.",
-            tool_call_id: call.id ?? "",
-            name: call.name,
-          }),
-      ),
-    };
+  const allowCalls: typeof toolCalls = []; // 允许
+  const blockMessages: ToolMessage[] = []; // 拒绝
+  const confirmCalls: typeof toolCalls = []; // 用户确认
+
+  for (const call of toolCalls) {
+    const tool = tools.find((t) => t.name === call.name);
+    const decision = checkToolPermission(
+      call,
+      tool ?? { permission_level: undefined },
+    );
+    if (decision.action === "allow") {
+      allowCalls.push(call);
+    } else if (decision.action === "block") {
+      blockMessages.push(
+        new ToolMessage({
+          content: decision.reason,
+          tool_call_id: call.id ?? "",
+          name: call.name,
+        }),
+      );
+    } else {
+      confirmCalls.push(call);
+    }
   }
 
-  // 并行调用工具
-  const outputs = await Promise.all(
-    // 对每个工具调用，异步调用工具
-    toolCalls.map(async (call) => {
-      // 查找工具
-      const tool = tools.find((t) => t.name === call.name);
-      try {
-        if (!tool) throw new Error(`Tool "${call.name}" not found.`);
-        // 在调用工具之前统一打印工具调用日志（只打印工具名）
+  async function executeCalls(calls: typeof toolCalls): Promise<ToolMessage[]> {
+    return Promise.all(
+      calls.map(async (call) => {
+        const tool = tools.find((t) => t.name === call.name);
         console.log(formatToolLog(call.name, JSON.stringify(call.args)));
-        // 调用工具
-        const output = await tool.invoke(
-          { ...call, type: "tool_call" },
-          config,
-        );
-        const content =
-          typeof output === "string" ? output : JSON.stringify(output);
-        const finalContent = await maybePersistedOutput(content, call.id ?? "");
-        // 返回工具调用消息
-        return new ToolMessage({
-          content: finalContent,
-          tool_call_id: call.id ?? "",
-          name: call.name,
-        });
-      } catch (e: any) {
-        return new ToolMessage({
-          content: `Error: ${e.message}\n Please fix your mistakes.`,
-          tool_call_id: call.id ?? "",
-          name: call.name,
-        });
-      }
-    }),
-  );
+        try {
+          if (!tool) throw new Error(`Tool "${call.name}" not found.`);
+          const output = await tool.invoke(
+            { ...call, type: "tool_call" },
+            config,
+          );
+          const content =
+            typeof output === "string" ? output : JSON.stringify(output);
+          const finalContent = await maybePersistedOutput(
+            content,
+            call.id ?? "",
+          );
+          return new ToolMessage({
+            content: finalContent,
+            tool_call_id: call.id ?? "",
+            name: call.name,
+          });
+        } catch (e: any) {
+          return new ToolMessage({
+            content: `Error: ${e.message}\n Please fix your mistakes.`,
+            tool_call_id: call.id ?? "",
+            name: call.name,
+          });
+        }
+      }),
+    );
+  }
 
-  return { messages: outputs };
+  const allowOutputs = await executeCalls(allowCalls);
+
+  if (confirmCalls.length === 0) {
+    return { messages: [...allowOutputs, ...blockMessages] };
+  }
+
+  const result = interrupt({ toolCalls: confirmCalls });
+
+  if (result !== "approved") {
+    const deniedMessages = confirmCalls.map(
+      (call) =>
+        new ToolMessage({
+          content: "Tool execution was denied by the user.",
+          tool_call_id: call.id ?? "",
+          name: call.name,
+        }),
+    );
+    return { messages: [...allowOutputs, ...blockMessages, ...deniedMessages] };
+  }
+
+  const confirmOutputs = await executeCalls(confirmCalls);
+  return { messages: [...allowOutputs, ...blockMessages, ...confirmOutputs] };
 }
 
 // ── 记忆 ──────────────────────────────────────────────────

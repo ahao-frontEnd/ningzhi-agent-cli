@@ -42,12 +42,6 @@
     "~/.vercel",
     "~/.netlify",
 
-    "~/Documents",
-    "~/Desktop",
-    "~/Downloads",
-    "~/Pictures",
-    "~/Movies",
-
     "~/Library/Containers",
     "/private",
     "/etc",
@@ -98,12 +92,6 @@
     "~/.vercel",
     "~/.netlify",
 
-    "~/Documents",
-    "~/Desktop",
-    "~/Downloads",
-    "~/Pictures",
-    "~/Videos",
-
     "/etc/shadow",
     "/etc/sudoers",
     "/proc",
@@ -136,12 +124,6 @@
 
     "%USERPROFILE%\\.m2",
     "%USERPROFILE%\\.gradle",
-
-    "%USERPROFILE%\\Documents",
-    "%USERPROFILE%\\Desktop",
-    "%USERPROFILE%\\Downloads",
-    "%USERPROFILE%\\Pictures",
-    "%USERPROFILE%\\Videos",
 
     "%APPDATA%",
     "%LOCALAPPDATA%",

@@ -36,7 +36,11 @@ const readFileTool = createNingzhiTool(
     name: "read_file",
     description: "Read the contents of a file in the current directory.",
     schema: z.object({
-      filepath: z.string().describe("The relative path of the file to read."),
+      filepath: z
+        .string()
+        .describe(
+          "The path of the file to read. Can be relative, absolute, or start with ~.",
+        ),
     }),
   },
   "read",
@@ -50,7 +54,11 @@ const writeFileTool = createNingzhiTool(
     description:
       "Create or overwrite a file in the current directory. Will create parent directories if needed.",
     schema: z.object({
-      filepath: z.string().describe("The relative path of the file to write."),
+      filepath: z
+        .string()
+        .describe(
+          "The path of the file to write. Can be relative, absolute, or start with ~.",
+        ),
       content: z.string().describe("The content to write to the file."),
     }),
   },
