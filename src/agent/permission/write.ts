@@ -1,24 +1,13 @@
-import path from "path";
 import { isDangerousPath } from "./is-dangerous-path";
+import { isInProjectDir } from "./util";
 
-function isInProjectDir(filepath: string): boolean {
-  const resolved = path.resolve(filepath);
-  const cwd = path.resolve(process.cwd());
-  return resolved === cwd || resolved.startsWith(cwd + path.sep);
-}
-
-export function checkToolPermission(
-  toolCall: { name: string; args: Record<string, any> },
-  tool: { permission_level?: string },
-):
+export function checkWritePermission(toolCall: {
+  name: string;
+  args: Record<string, any>;
+}):
   | { action: "allow" }
   | { action: "block"; reason: string }
   | { action: "confirm" } {
-  const level = tool.permission_level;
-  if (level !== "read" && level !== "write") {
-    return { action: "confirm" };
-  }
-
   const filepath = toolCall.args?.filepath;
   if (filepath == null) {
     return { action: "allow" };

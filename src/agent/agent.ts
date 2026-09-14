@@ -28,7 +28,8 @@ import { tools, maybePersistedOutput } from "./tools";
 import { compressMessages, findSafeCompressionIndex } from "./context";
 import { formatToolLog } from "./colors";
 import { systemPrompt } from "./prompt";
-import { checkToolPermission } from "./permission";
+import { checkReadPermission } from "./permission/read";
+import { checkWritePermission } from "./permission/write";
 
 dotenv.config();
 
@@ -142,10 +143,20 @@ async function toolNode(state: AgentState, config: any) {
 
   for (const call of toolCalls) {
     const tool = tools.find((t) => t.name === call.name);
-    const decision = checkToolPermission(
-      call,
-      tool ?? { permission_level: undefined },
-    );
+    // 检查工具权限等级
+    const level = tool?.permission_level;
+    let decision:
+      | { action: "allow" }
+      | { action: "block"; reason: string }
+      | { action: "confirm" };
+    if (level === "read") {
+      decision = checkReadPermission(call);
+    } else if (level === "write") {
+      decision = checkWritePermission(call);
+    } else {
+      decision = { action: "confirm" as const };
+    }
+
     if (decision.action === "allow") {
       allowCalls.push(call);
     } else if (decision.action === "block") {
