@@ -1,4 +1,8 @@
-import { isChangingDirectory, isScriptExecution } from "./util";
+import {
+  isChangingDirectory,
+  isScriptExecution,
+  isDangerousOperation,
+} from "./util";
 
 export function checkExecPermission(toolCall: {
   name: string;
@@ -22,6 +26,14 @@ export function checkExecPermission(toolCall: {
     return {
       action: "block",
       reason: scriptCheck.reason!,
+    };
+  }
+
+  const dangerCheck = isDangerousOperation(command);
+  if (dangerCheck.blocked) {
+    return {
+      action: "block",
+      reason: dangerCheck.reason!,
     };
   }
 

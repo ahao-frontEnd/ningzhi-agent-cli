@@ -1,4 +1,8 @@
-import { isChangingDirectory, isScriptExecution } from "./util";
+import {
+  isChangingDirectory,
+  isScriptExecution,
+  isDangerousOperation,
+} from "./util";
 
 describe("isChangingDirectory", () => {
   it("detects cd command", () => {
@@ -35,6 +39,8 @@ describe("isChangingDirectory", () => {
     expect(isChangingDirectory("git status")).toBe(false);
   });
 });
+
+// ===============================================================================================
 
 describe("isScriptExecution", () => {
   it("blocks python scripts", () => {
@@ -77,5 +83,82 @@ describe("isScriptExecution", () => {
     expect(isScriptExecution("python script.py").reason).toContain("run_py");
     expect(isScriptExecution("node script.js").reason).toContain("run_js");
     expect(isScriptExecution("go run main.go").reason).toContain("shell");
+  });
+});
+
+// ===============================================================================================
+// 测试危险命令
+// ===============================================================================================
+describe("isDangerousOperation", () => {
+  it("blocks sudo", () => {
+    expect(isDangerousOperation("sudo rm file").blocked).toBe(true);
+    expect(isDangerousOperation("doas apt update").blocked).toBe(true);
+  });
+
+  it("blocks delete commands", () => {
+    expect(isDangerousOperation("rm -rf dir").blocked).toBe(true);
+    expect(isDangerousOperation("rmdir dir").blocked).toBe(true);
+    expect(isDangerousOperation("del file.txt").blocked).toBe(true);
+  });
+
+  it("blocks modify commands", () => {
+    expect(isDangerousOperation("mv old new").blocked).toBe(true);
+    expect(isDangerousOperation("cp src dst").blocked).toBe(true);
+    expect(isDangerousOperation("touch file").blocked).toBe(true);
+    expect(isDangerousOperation("mkdir dir").blocked).toBe(true);
+  });
+
+  it("blocks permission commands", () => {
+    expect(isDangerousOperation("chmod 755 file").blocked).toBe(true);
+    expect(isDangerousOperation("chown user file").blocked).toBe(true);
+  });
+
+  it("blocks process/service commands", () => {
+    expect(isDangerousOperation("kill 1234").blocked).toBe(true);
+    expect(isDangerousOperation("systemctl restart nginx").blocked).toBe(true);
+    expect(isDangerousOperation("shutdown now").blocked).toBe(true);
+  });
+
+  it("blocks user management commands", () => {
+    expect(isDangerousOperation("useradd newuser").blocked).toBe(true);
+    expect(isDangerousOperation("passwd").blocked).toBe(true);
+  });
+
+  it("blocks sensitive info commands", () => {
+    expect(isDangerousOperation("env").blocked).toBe(true);
+    expect(isDangerousOperation("printenv").blocked).toBe(true);
+    expect(isDangerousOperation("history").blocked).toBe(true);
+  });
+
+  it("blocks network/remote commands", () => {
+    expect(isDangerousOperation("ssh user@host").blocked).toBe(true);
+    expect(isDangerousOperation("curl http://example.com").blocked).toBe(true);
+    expect(isDangerousOperation("wget http://example.com").blocked).toBe(true);
+    expect(isDangerousOperation("nc -l 8080").blocked).toBe(true);
+  });
+
+  it("blocks output redirection", () => {
+    expect(isDangerousOperation("echo hello > file.txt").blocked).toBe(true);
+    expect(isDangerousOperation("cat file >> other.txt").blocked).toBe(true);
+  });
+
+  it("blocks nested shell commands", () => {
+    expect(isDangerousOperation('bash -c "rm file"').blocked).toBe(true);
+    expect(isDangerousOperation('sh -c "cp a b"').blocked).toBe(true);
+  });
+
+  it("allows safe read-only commands", () => {
+    expect(isDangerousOperation("ls -la").blocked).toBe(false);
+    expect(isDangerousOperation("cat file.txt").blocked).toBe(false);
+    expect(isDangerousOperation("grep pattern file.txt").blocked).toBe(false);
+    expect(isDangerousOperation("ps aux").blocked).toBe(false);
+    expect(isDangerousOperation("git status").blocked).toBe(false);
+  });
+
+  it("provides reason for blocked operations", () => {
+    expect(isDangerousOperation("rm file").reason).toContain("rm");
+    expect(isDangerousOperation("echo hello > file.txt").reason).toContain(
+      "重定向",
+    );
   });
 });
