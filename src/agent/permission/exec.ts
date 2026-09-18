@@ -1,4 +1,4 @@
-import { isChangingDirectory } from "./util";
+import { isChangingDirectory, isScriptExecution } from "./util";
 
 export function checkExecPermission(toolCall: {
   name: string;
@@ -14,6 +14,14 @@ export function checkExecPermission(toolCall: {
     return {
       action: "block",
       reason: `命令包含切换目录操作，为防止目录逃逸，禁止执行。如有需要请手动操作。`,
+    };
+  }
+
+  const scriptCheck = isScriptExecution(command);
+  if (scriptCheck.blocked) {
+    return {
+      action: "block",
+      reason: scriptCheck.reason!,
     };
   }
 
