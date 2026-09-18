@@ -32,6 +32,7 @@ import { systemPrompt } from "./prompt";
 import { checkReadPermission } from "./permission/read";
 import { checkWritePermission } from "./permission/write";
 import { checkExecPermission } from "./permission/exec";
+import { checkNetworkPermission } from "./permission/network";
 
 dotenv.config();
 
@@ -157,8 +158,10 @@ async function toolNode(state: AgentState, config: any) {
       decision = checkWritePermission(call);
     } else if (level === "exec") {
       decision = checkExecPermission(call);
+    } else if (level === "network") {
+      decision = checkNetworkPermission(call);
     } else {
-      decision = { action: "confirm" as const };
+      decision = { action: "allow" as const };
     }
 
     if (decision.action === "allow") {
