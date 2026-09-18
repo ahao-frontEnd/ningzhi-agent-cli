@@ -103,6 +103,94 @@ export function isScriptExecution(command: string): {
 
 // ===============================================================================================
 
+// 允许的命令
+const SAFE_COMMANDS = [
+  "ls",
+  "pwd",
+  "cat",
+  "head",
+  "tail",
+  "grep",
+  "find",
+  "echo",
+  "date",
+  "whoami",
+  "id",
+  "uname",
+  "wc",
+  "sort",
+  "uniq",
+  "diff",
+  "which",
+  "whereis",
+  "file",
+  "stat",
+  "df",
+  "du",
+  "ps",
+  "pgrep",
+  "pstree",
+  "uptime",
+  "hostname",
+  "printf",
+  "readlink",
+  "realpath",
+  "tput",
+  "clear",
+  "reset",
+  "seq",
+  "yes",
+  "true",
+  "false",
+  "dir",
+  "type",
+  "findstr",
+  "more",
+  "tree",
+  "ver",
+  "vol",
+  "gci",
+  "gc",
+  "gl",
+  "sls",
+  "write",
+];
+// 允许的 git 子命令
+const SAFE_GIT_SUBCOMMANDS = ["status", "diff", "log"];
+// 获取命令的第二个 token
+function getSecondToken(command: string): string | null {
+  const tokens = command.trim().split(/\s+/);
+  return tokens[1] || null;
+}
+// 检查命令是否安全
+export function isSafeCommand(command: string): boolean {
+  if (hasOutputRedirect(command)) return false;
+
+  const subCommands = command.split(/[;|&]+/).filter(Boolean);
+
+  for (const sub of subCommands) {
+    const token = getFirstToken(sub);
+    const tool = path.basename(token).toLowerCase();
+
+    if (SAFE_COMMANDS.includes(tool)) {
+      continue;
+    }
+
+    if (tool === "git") {
+      const subCommand = getSecondToken(sub)?.toLowerCase();
+      if (subCommand && SAFE_GIT_SUBCOMMANDS.includes(subCommand)) {
+        continue;
+      }
+    }
+
+    return false;
+  }
+
+  return true;
+}
+
+// ===============================================================================================
+
 // 阻止危险命令
 const DANGEROUS_COMMANDS = [
   "sudo",

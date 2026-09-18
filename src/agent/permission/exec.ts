@@ -2,15 +2,29 @@ import {
   isChangingDirectory,
   isScriptExecution,
   isDangerousOperation,
+  isSafeCommand,
 } from "./util";
 
-export function checkExecPermission(toolCall: {
+type checkExecPermissionReturnType =
+  | { action: "allow" }
+  | { action: "block"; reason: string }
+  | { action: "confirm" };
+
+interface IToolCall {
   name: string;
   args: Record<string, any>;
-}): { action: "block"; reason: string } | { action: "confirm" } {
+}
+
+export function checkExecPermission(
+  toolCall: IToolCall,
+): checkExecPermissionReturnType {
   const command = toolCall.args?.command;
   if (typeof command !== "string") {
     return { action: "confirm" };
+  }
+
+  if (isSafeCommand(command)) {
+    return { action: "allow" };
   }
 
   // 检查命令是否包含切换目录操作

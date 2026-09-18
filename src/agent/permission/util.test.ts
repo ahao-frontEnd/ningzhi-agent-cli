@@ -2,6 +2,7 @@ import {
   isChangingDirectory,
   isScriptExecution,
   isDangerousOperation,
+  isSafeCommand,
 } from "./util";
 
 describe("isChangingDirectory", () => {
@@ -160,5 +161,64 @@ describe("isDangerousOperation", () => {
     expect(isDangerousOperation("echo hello > file.txt").reason).toContain(
       "重定向",
     );
+  });
+});
+
+// =============================================================================
+// 测试安全命令
+// =============================================================================
+describe("isSafeCommand", () => {
+  it("allows basic read-only commands", () => {
+    expect(isSafeCommand("ls")).toBe(true);
+    expect(isSafeCommand("pwd")).toBe(true);
+    expect(isSafeCommand("cat file.txt")).toBe(true);
+    expect(isSafeCommand("head -n 10 file.txt")).toBe(true);
+    expect(isSafeCommand("tail -f log.txt")).toBe(true);
+    expect(isSafeCommand("grep pattern file.txt")).toBe(true);
+    expect(isSafeCommand('find . -name "*.ts"')).toBe(true);
+    expect(isSafeCommand("echo hello")).toBe(true);
+    expect(isSafeCommand("date")).toBe(true);
+    expect(isSafeCommand("whoami")).toBe(true);
+  });
+
+  it("allows safe git commands", () => {
+    expect(isSafeCommand("git status")).toBe(true);
+    expect(isSafeCommand("git diff")).toBe(true);
+    expect(isSafeCommand("git log --oneline")).toBe(true);
+  });
+
+  it("blocks unsafe git commands", () => {
+    expect(isSafeCommand('git commit -m "msg"')).toBe(false);
+    expect(isSafeCommand("git checkout branch")).toBe(false);
+    expect(isSafeCommand("git push")).toBe(false);
+  });
+
+  it("allows Windows equivalents", () => {
+    expect(isSafeCommand("dir")).toBe(true);
+    expect(isSafeCommand("type file.txt")).toBe(true);
+    expect(isSafeCommand("findstr pattern file.txt")).toBe(true);
+    expect(isSafeCommand("gci")).toBe(true);
+    expect(isSafeCommand("gc file.txt")).toBe(true);
+  });
+
+  it("blocks commands with output redirect", () => {
+    expect(isSafeCommand("echo hello > file.txt")).toBe(false);
+    expect(isSafeCommand("git diff > patch.txt")).toBe(false);
+  });
+
+  it("blocks compound commands containing unsafe parts", () => {
+    expect(isSafeCommand("ls && rm file")).toBe(false);
+    expect(isSafeCommand("git status && git commit")).toBe(false);
+  });
+
+  it("allows compound commands with all safe parts", () => {
+    expect(isSafeCommand("ls && pwd")).toBe(true);
+    expect(isSafeCommand("git status && git diff")).toBe(true);
+  });
+
+  it("blocks unknown commands", () => {
+    expect(isSafeCommand("npm install")).toBe(false);
+    expect(isSafeCommand("make")).toBe(false);
+    expect(isSafeCommand("docker ps")).toBe(false);
   });
 });
