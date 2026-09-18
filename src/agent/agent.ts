@@ -28,8 +28,10 @@ import { tools, maybePersistedOutput } from "./tools";
 import { compressMessages, findSafeCompressionIndex } from "./context";
 import { formatToolLog } from "./colors";
 import { systemPrompt } from "./prompt";
+
 import { checkReadPermission } from "./permission/read";
 import { checkWritePermission } from "./permission/write";
+import { checkExecPermission } from "./permission/exec";
 
 dotenv.config();
 
@@ -153,6 +155,8 @@ async function toolNode(state: AgentState, config: any) {
       decision = checkReadPermission(call);
     } else if (level === "write") {
       decision = checkWritePermission(call);
+    } else if (level === "exec") {
+      decision = checkExecPermission(call);
     } else {
       decision = { action: "confirm" as const };
     }
