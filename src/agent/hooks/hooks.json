@@ -2,20 +2,21 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "exec",
-        "command": "node -e \"// require('fs').mkdirSync('docs',{recursive:true}); // require('fs').writeFileSync('docs/test.txt','hello')\""
+        "matcher": "read_file",
+        "command": "node ./src/agent/hooks/protect_env.js"
       },
-
-      { "matcher": "read_file", "command": "./src/agent/hooks/protect_env.sh" },
-      { "matcher": "exec", "command": "./src/agent/hooks/protect_env.sh" },
-      { "matcher": "run_py", "command": "./src/agent/hooks/protect_env.sh" },
-      { "matcher": "run_js", "command": "./src/agent/hooks/protect_env.sh" }
+      { "matcher": "exec", "command": "node ./src/agent/hooks/protect_env.js" },
+      {
+        "matcher": "run_py",
+        "command": "node ./src/agent/hooks/protect_env.js"
+      },
+      {
+        "matcher": "run_js",
+        "command": "node ./src/agent/hooks/protect_env.js"
+      }
     ],
     "PostToolUse": [
-      {
-        "matcher": "exec",
-        "command": "echo 'post tool use Checking command...'"
-      }
+      { "matcher": "*", "command": "node ./src/agent/hooks/record_tool.js" }
     ],
     "SessionStart": []
   }

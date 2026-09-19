@@ -71,6 +71,15 @@ describe("matchHooks", () => {
     expect(matchHooks(hooks, "read_file")).toHaveLength(2);
   });
 
+  it("matches all tools with wildcard *", () => {
+    const withWildcard: HookConfig[] = [
+      ...hooks,
+      { matcher: "*", command: "cmd4" },
+    ];
+    expect(matchHooks(withWildcard, "anything")).toHaveLength(1);
+    expect(matchHooks(withWildcard, "exec")).toHaveLength(2);
+  });
+
   it("returns empty array when no match", () => {
     expect(matchHooks(hooks, "web_search")).toHaveLength(0);
   });

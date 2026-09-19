@@ -46,7 +46,7 @@ export function matchHooks(
   toolName: string,
 ): HookConfig[] {
   if (!hooks) return [];
-  return hooks.filter((h) => toolName.includes(h.matcher));
+  return hooks.filter((h) => h.matcher === "*" || toolName.includes(h.matcher));
 }
 
 export async function runHook(
