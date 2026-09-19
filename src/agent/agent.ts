@@ -4,7 +4,7 @@ import {
   type UsageMetadata,
   type BaseMessage,
   SystemMessage,
-  isAIMessage,
+  AIMessage,
   HumanMessage,
   ToolMessage,
 } from "@langchain/core/messages";
@@ -48,8 +48,6 @@ const model = new ChatOpenAI({
   streaming: true,
 });
 
-const modelWithTools = model.bindTools(tools);
-
 // ── State Schema ──────────────────────────────────────────
 const StateAnnotation = Annotation.Root({
   // 完整对话消息列表（含 HumanMessage / AIMessage / ToolMessage 等）
@@ -75,201 +73,43 @@ const StateAnnotation = Annotation.Root({
 type AgentState = typeof StateAnnotation.State;
 
 // ── Graph Nodes ───────────────────────────────────────────
-async function modelRequest(state: AgentState, config: any) {
-  let modelMessages = state.messages ?? [];
-  // 如果有历史摘要，添加到系统提示词
-  if (state.contextSummary && state.lastCompressedIndex > 0) {
-    const summaryMsg = new SystemMessage(
-      `历史对话摘要：\n\n${state.contextSummary}`,
-    );
-    // 从压缩索引开始添加新消息
-    modelMessages = [
-      summaryMsg,
-      ...modelMessages.slice(state.lastCompressedIndex),
-    ];
-  }
-  // 简化工具调用消息，只保留工具名
-  modelMessages = simplifyToolMessages(modelMessages);
-  // 上下文压缩的最后一道防线
-  // 只保留最近 500 条消息， 极端场景，一般达不到，是为了防止上下文爆炸，不过一般不加这个逻辑也可以正常工作
-  modelMessages = modelMessages.slice(-500);
-  // 构建模型输入，包含系统提示词和简化后的消息
-  const messages = [new SystemMessage(systemPrompt), ...modelMessages];
-  // 调用模型
-  const response = await modelWithTools.invoke(messages, config);
-  // 返回模型响应， response 是一个 AIMessage 对象
-  return { messages: [response] };
-}
 
 function shouldContinue(state: AgentState) {
   const lastMessage = state.messages[state.messages.length - 1];
-  if (isAIMessage(lastMessage) && lastMessage.tool_calls?.length) {
+  if (AIMessage.isInstance(lastMessage) && lastMessage.tool_calls?.length) {
     return "tools";
   }
   return END;
 }
 
-async function toolNode(state: AgentState, config: any) {
-  const messages = state.messages;
-  // 提取所有工具调用 ID
-  const toolMessageIds = new Set(
-    messages
-      .filter((msg) => msg.getType() === "tool")
-      .map((msg) => (msg as ToolMessage).tool_call_id),
-  );
-  // 找到最后一个 AI 消息
-  let aiMessage: BaseMessage | undefined;
-  // 从后往前遍历消息，找到第一个 AI 消息
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (isAIMessage(messages[i])) {
-      aiMessage = messages[i];
-      break;
+/**
+ * 简化工具调用消息，只保留最近 3 个
+ * @param messages - 原始消息数组
+ * @returns 简化后的消息数组
+ */
+function simplifyToolMessages(messages: BaseMessage[]): BaseMessage[] {
+  const toolIndices: number[] = [];
+  // 找到所有工具调用消息的索引
+  for (let i = 0; i < messages.length; i++) {
+    if (messages[i].type === "tool") {
+      toolIndices.push(i);
     }
   }
-  // 如果没有 AI 消息，或者不是 AI 消息，抛出错误
-  if (!aiMessage || !isAIMessage(aiMessage)) {
-    throw new Error("ToolNode only accepts AIMessages as input.");
-  }
-  // 过滤出 未处理的工具调用, 就是 id 为 null 或不在 toolMessageIds 中的
-  // 如果 ai message 某个工具调用的 id 找不到对应的 ToolMessage，说明它还没被执行过，
-  // 正常是走 !toolMessageIds.has(call.id) 这个逻辑
-  const toolCalls =
-    aiMessage.tool_calls?.filter(
-      (call) => call.id == null || !toolMessageIds.has(call.id),
-    ) ?? [];
-
-  if (toolCalls.length === 0) {
-    return { messages: [] };
-  }
-
-  const allowCalls: typeof toolCalls = []; // 允许
-  const blockMessages: ToolMessage[] = []; // 拒绝
-  const confirmCalls: typeof toolCalls = []; // 用户确认
-
-  for (const call of toolCalls) {
-    const tool = tools.find((t) => t.name === call.name);
-    // 检查工具权限等级
-    const level = tool?.permission_level;
-    let decision:
-      | { action: "allow" }
-      | { action: "block"; reason: string }
-      | { action: "confirm" };
-    if (level === "read") {
-      decision = checkReadPermission(call);
-    } else if (level === "write") {
-      decision = checkWritePermission(call);
-    } else if (level === "exec") {
-      decision = checkExecPermission(call);
-    } else if (level === "network") {
-      decision = checkNetworkPermission(call);
-    } else {
-      decision = { action: "allow" as const };
-    }
-
-    if (decision.action === "allow") {
-      allowCalls.push(call);
-    } else if (decision.action === "block") {
-      blockMessages.push(
-        new ToolMessage({
-          content: decision.reason,
-          tool_call_id: call.id ?? "",
-          name: call.name,
-        }),
-      );
-    } else {
-      confirmCalls.push(call);
-    }
-  }
-
-  async function executeCalls(calls: typeof toolCalls): Promise<ToolMessage[]> {
-    return Promise.all(
-      calls.map(async (call) => {
-        const tool = tools.find((t) => t.name === call.name);
-        console.log(formatToolLog(call.name, JSON.stringify(call.args)));
-        try {
-          const threadId = config?.configurable?.thread_id || "";
-          // PreToolUse hook
-          const preResult = await runPreToolUseHooks({
-            toolName: call.name,
-            toolArgs: call.args,
-            toolCallId: call.id ?? "",
-            threadId,
-          });
-          if (preResult.action === "block") {
-            return new ToolMessage({
-              content: preResult.reason,
-              tool_call_id: call.id ?? "",
-              name: call.name,
-            });
-          }
-
-          if (!tool) throw new Error(`Tool "${call.name}" not found.`);
-          const output = await tool.invoke(
-            { ...call, type: "tool_call" },
-            config,
-          );
-          let content =
-            typeof output === "string" ? output : JSON.stringify(output);
-
-          // PostToolUse hook
-          const postResult = await runPostToolUseHooks({
-            toolName: call.name,
-            toolArgs: call.args,
-            toolOutput: content,
-            toolCallId: call.id ?? "",
-            threadId,
-          });
-          if (postResult.action === "block") {
-            content = postResult.reason;
-          } else if (postResult.action === "inject") {
-            content = `[Hook injection]\n${postResult.message}\n\n${content}`;
-          }
-          if (preResult.action === "inject") {
-            content = `[Hook injection]\n${preResult.message}\n\n${content}`;
-          }
-          // tool 上下文持久化
-          const finalContent = await maybePersistedOutput(
-            content,
-            call.id ?? "",
-          );
-          return new ToolMessage({
-            content: finalContent,
-            tool_call_id: call.id ?? "",
-            name: call.name,
-          });
-        } catch (e: any) {
-          return new ToolMessage({
-            content: `Error: ${e.message}\n Please fix your mistakes.`,
-            tool_call_id: call.id ?? "",
-            name: call.name,
-          });
-        }
-      }),
-    );
-  }
-
-  const allowOutputs = await executeCalls(allowCalls);
-
-  if (confirmCalls.length === 0) {
-    return { messages: [...allowOutputs, ...blockMessages] };
-  }
-
-  const result = interrupt({ toolCalls: confirmCalls });
-
-  if (result !== "approved") {
-    const deniedMessages = confirmCalls.map(
-      (call) =>
-        new ToolMessage({
-          content: "Tool execution was denied by the user.",
-          tool_call_id: call.id ?? "",
-          name: call.name,
-        }),
-    );
-    return { messages: [...allowOutputs, ...blockMessages, ...deniedMessages] };
-  }
-
-  const confirmOutputs = await executeCalls(confirmCalls);
-  return { messages: [...allowOutputs, ...blockMessages, ...confirmOutputs] };
+  // 只保留最近 3 个工具调用消息
+  const recentToolIndices = new Set(toolIndices.slice(-3));
+  // 遍历所有消息，简化工具调用消息
+  return messages.map((msg, i) => {
+    if (msg.type !== "tool") return msg;
+    if (recentToolIndices.has(i)) return msg;
+    const toolMsg = msg as ToolMessage;
+    if (toolMsg.name === "read_file") return msg;
+    // 简化工具调用消息，只保留工具名
+    return new ToolMessage({
+      content: `[Previous: used ${toolMsg.name}]`,
+      tool_call_id: toolMsg.tool_call_id,
+      name: toolMsg.name,
+    });
+  });
 }
 
 // ── 记忆 ──────────────────────────────────────────────────
@@ -278,34 +118,230 @@ async function toolNode(state: AgentState, config: any) {
 fs.mkdirSync(".dbData", { recursive: true });
 const checkpointer = SqliteSaver.fromConnString(DB_PATH);
 
+// ── Agent Graph 工厂 ──────────────────────────────────────
+function createAgentGraph(toolList: typeof tools) {
+  const modelWithTheseTools = model.bindTools(toolList);
+
+  async function modelRequest(state: AgentState, config: any) {
+    let modelMessages = state.messages ?? [];
+    // 如果有历史摘要，添加到系统提示词
+    if (state.contextSummary && state.lastCompressedIndex > 0) {
+      const summaryMsg = new SystemMessage(
+        `历史对话摘要：\n\n${state.contextSummary}`,
+      );
+      // 从压缩索引开始添加新消息
+      modelMessages = [
+        summaryMsg,
+        ...modelMessages.slice(state.lastCompressedIndex),
+      ];
+    }
+    // 简化工具调用消息，只保留工具名
+    modelMessages = simplifyToolMessages(modelMessages);
+    // 上下文压缩的最后一道防线
+    // 只保留最近 500 条消息， 极端场景，一般达不到，是为了防止上下文爆炸，不过一般不加这个逻辑也可以正常工作
+    modelMessages = modelMessages.slice(-500);
+    // 构建模型输入，包含系统提示词和简化后的消息
+    const messages = [new SystemMessage(systemPrompt), ...modelMessages];
+    // 调用模型
+    const response = await modelWithTheseTools.invoke(messages, config);
+    // 返回模型响应， response 是一个 AIMessage 对象
+    return { messages: [response] };
+  }
+
+  async function toolNode(state: AgentState, config: any) {
+    const messages = state.messages;
+    // 找到所有工具调用消息的 id
+    const toolMessageIds = new Set(
+      messages
+        .filter((msg) => msg.type === "tool")
+        .map((msg) => (msg as ToolMessage).tool_call_id),
+    );
+    // 找到最后一个 AI 消息
+    let aiMessage: BaseMessage | undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (AIMessage.isInstance(messages[i])) {
+        aiMessage = messages[i];
+        break;
+      }
+    }
+    // 如果没有 AI 消息，或者不是 AI 消息，抛出错误
+    if (!aiMessage || !AIMessage.isInstance(aiMessage)) {
+      throw new Error("ToolNode only accepts AIMessages as input.");
+    }
+    // 过滤出 未处理的工具调用, 就是 id 为 null 或不在 toolMessageIds 中的
+    // 如果 ai message 某个工具调用的 id 找不到对应的 ToolMessage，说明它还没被执行过，
+    // 正常是走 !toolMessageIds.has(call.id) 这个逻辑
+    const toolCalls =
+      aiMessage.tool_calls?.filter(
+        (call) => call.id == null || !toolMessageIds.has(call.id),
+      ) ?? [];
+
+    if (toolCalls.length === 0) {
+      return { messages: [] };
+    }
+    // 过滤出允许执行的工具调用
+    const allowCalls: typeof toolCalls = [];
+    const blockMessages: ToolMessage[] = [];
+    const confirmCalls: typeof toolCalls = [];
+    // 遍历所有工具调用，根据权限等级判断是否允许执行
+    for (const call of toolCalls) {
+      const tool = toolList.find((t) => t.name === call.name);
+      const level = tool?.permission_level;
+      let decision:
+        | { action: "allow" }
+        | { action: "block"; reason: string }
+        | { action: "confirm" };
+      if (level === "read") {
+        decision = checkReadPermission(call);
+      } else if (level === "write") {
+        decision = checkWritePermission(call);
+      } else if (level === "exec") {
+        decision = checkExecPermission(call);
+      } else if (level === "network") {
+        decision = checkNetworkPermission(call);
+      } else {
+        decision = { action: "allow" as const };
+      }
+      if (decision.action === "allow") {
+        allowCalls.push(call);
+      } else if (decision.action === "block") {
+        blockMessages.push(
+          new ToolMessage({
+            content: decision.reason,
+            tool_call_id: call.id ?? "",
+            name: call.name,
+          }),
+        );
+      } else {
+        confirmCalls.push(call);
+      }
+    }
+    // 执行允许执行的工具调用
+    async function executeCalls(
+      calls: typeof toolCalls,
+    ): Promise<ToolMessage[]> {
+      return Promise.all(
+        calls.map(async (call) => {
+          const tool = toolList.find((t) => t.name === call.name);
+          console.log(formatToolLog(call.name, JSON.stringify(call.args)));
+          try {
+            const threadId = config?.configurable?.thread_id || "";
+
+            // PreToolUse hook
+            const preResult = await runPreToolUseHooks({
+              toolName: call.name,
+              toolArgs: call.args,
+              toolCallId: call.id ?? "",
+              threadId,
+            });
+
+            if (preResult.action === "block") {
+              return new ToolMessage({
+                content: preResult.reason,
+                tool_call_id: call.id ?? "",
+                name: call.name,
+              });
+            }
+
+            if (!tool) throw new Error(`Tool "${call.name}" not found.`);
+            const output = await tool.invoke(
+              { ...call, type: "tool_call" },
+              config,
+            );
+            let content =
+              typeof output === "string" ? output : JSON.stringify(output);
+
+            // PostToolUse hook
+            const postResult = await runPostToolUseHooks({
+              toolName: call.name,
+              toolArgs: call.args,
+              toolOutput: content,
+              toolCallId: call.id ?? "",
+              threadId,
+            });
+
+            if (postResult.action === "block") {
+              content = postResult.reason;
+            } else if (postResult.action === "inject") {
+              content = `[Hook injection]\n${postResult.message}\n\n${content}`;
+            }
+
+            if (preResult.action === "inject") {
+              content = `[Hook injection]\n${preResult.message}\n\n${content}`;
+            }
+
+            const finalContent = await maybePersistedOutput(
+              content,
+              call.id ?? "",
+            );
+            return new ToolMessage({
+              content: finalContent,
+              tool_call_id: call.id ?? "",
+              name: call.name,
+            });
+          } catch (e: any) {
+            return new ToolMessage({
+              content: `Error: ${e.message}\n Please fix your mistakes.`,
+              tool_call_id: call.id ?? "",
+              name: call.name,
+            });
+          }
+        }),
+      );
+    }
+
+    const allowOutputs = await executeCalls(allowCalls);
+    if (confirmCalls.length === 0) {
+      return { messages: [...allowOutputs, ...blockMessages] };
+    }
+    const result = interrupt({ toolCalls: confirmCalls });
+
+    if (result !== "approved") {
+      const deniedMessages = confirmCalls.map(
+        (call) =>
+          new ToolMessage({
+            content: "Tool execution was denied by the user.",
+            tool_call_id: call.id ?? "",
+            name: call.name,
+          }),
+      );
+      return {
+        messages: [...allowOutputs, ...blockMessages, ...deniedMessages],
+      };
+    }
+
+    const confirmOutputs = await executeCalls(confirmCalls);
+    return { messages: [...allowOutputs, ...blockMessages, ...confirmOutputs] };
+  }
+
+  // 定义工作流
+  const workflow = new StateGraph(StateAnnotation)
+    .addNode("model_request", modelRequest)
+    .addNode("tools", toolNode)
+    .addEdge(START, "model_request")
+    .addConditionalEdges("model_request", shouldContinue, {
+      tools: "tools",
+      [END]: END,
+    })
+    .addEdge("tools", "model_request");
+
+  // 编译工作流
+  return workflow.compile({
+    checkpointer,
+  });
+}
+
 // ── Agent 创建 ────────────────────────────────────────────
-const workflow = new StateGraph(StateAnnotation)
-  .addNode("model_request", modelRequest)
-  .addNode("tools", toolNode)
-  .addEdge(START, "model_request")
-  .addConditionalEdges("model_request", shouldContinue, {
-    tools: "tools",
-    [END]: END,
-  })
-  .addEdge("tools", "model_request");
+export const agent = createAgentGraph(tools);
+const subAgent = createAgentGraph(tools.filter((t) => t.name !== "agent_tool"));
 
-export const agent: CompiledStateGraph<any, any, any> = workflow.compile({
-  checkpointer,
-});
-
-/**
- * 以流式方式运行 agent，将 token 逐个回调给调用方
- * @param {string} userMessage - 当前用户输入（历史已由 checkpointer 自动续接）
- * @param {Function} onToken   - 每个 token 到来时的回调 (token: string) => void
- * @param {Function} onToolConfirmation - tool 调用前的确认回调，返回 true 则执行，false 则拒绝
- * @param {string} threadId    - 会话 ID，相同 ID 自动续上历史记录
- * @returns {Promise<{ response: string; usageMetadata?: UsageMetadata }>}  完整的 AI 回复文本及 token 使用信息
- */
-export async function runAgentStream(
+// ── 核心运行逻辑 ──────────────────────────────────────────
+async function _runAgent(
+  compiledAgent: CompiledStateGraph<any, any, any>,
   userMessage: string,
   onToken: (token: string) => void,
   onToolConfirmation: (toolCalls: any[]) => Promise<boolean>,
-  threadId: string = "default-session",
+  threadId: string,
   signal?: AbortSignal,
 ): Promise<{ response: string; usageMetadata?: UsageMetadata }> {
   const config = { configurable: { thread_id: threadId } };
@@ -315,7 +351,7 @@ export async function runAgentStream(
   let input: any = { messages: [new HumanMessage(userMessage)] };
 
   while (true) {
-    const stream = await agent.stream(input, {
+    const stream = await compiledAgent.stream(input, {
       ...config,
       streamMode: "messages",
       signal,
@@ -350,7 +386,7 @@ export async function runAgentStream(
 
     // 流消费完后，取出当前会话状态，检查是否卡在 interrupt 上
     // （toolNode 里的 interrupt({ toolCalls }) 会让图执行暂停，等待外部 resume）
-    const state = await agent.getState(config);
+    const state = await compiledAgent.getState(config);
     // 找到处于中断状态的任务（其 interrupts 数组非空）
     const interruptedTask = state.tasks?.find(
       (t: any) => t.interrupts?.length > 0,
@@ -371,6 +407,49 @@ export async function runAgentStream(
 
   // 返回完整回复及 token 使用信息
   return { response: fullResponse, usageMetadata };
+}
+
+/**
+ * 以流式方式运行 agent，将 token 逐个回调给调用方
+ * @param {string} userMessage - 当前用户输入（历史已由 checkpointer 自动续接）
+ * @param {Function} onToken   - 每个 token 到来时的回调 (token: string) => void
+ * @param {Function} onToolConfirmation - tool 调用前的确认回调，返回 true 则执行，false 则拒绝
+ * @param {string} threadId    - 会话 ID，相同 ID 自动续上历史记录
+ * @returns {Promise<{ response: string; usageMetadata?: UsageMetadata }>}  完整的 AI 回复文本及 token 使用信息
+ */
+export async function runAgentStream(
+  userMessage: string,
+  onToken: (token: string) => void,
+  onToolConfirmation: (toolCalls: any[]) => Promise<boolean>,
+  threadId: string = "default-session",
+  signal?: AbortSignal,
+): Promise<{ response: string; usageMetadata?: UsageMetadata }> {
+  return _runAgent(
+    agent,
+    userMessage,
+    onToken,
+    onToolConfirmation,
+    threadId,
+    signal,
+  );
+}
+
+/**
+ * 启动一个 subagent 执行独立任务，完成后返回结果
+ * @param {string} prompt - 给 subagent 的任务提示
+ * @returns {Promise<string>} subagent 的最终回复
+ */
+export async function runSubAgent(prompt: string): Promise<string> {
+  const threadId = `subagent-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const result = await _runAgent(
+    subAgent,
+    prompt.trim(),
+    () => {}, // 不需要流式输出
+    async () => true, // subagent 自动确认 tools
+    threadId,
+    undefined, // 主 agent 中断即可
+  );
+  return result.response;
 }
 
 // 压缩上下文
@@ -401,34 +480,4 @@ export async function compressContext(
   });
 
   return { didCompress: true, count: count + 1 };
-}
-
-/**
- * 简化工具调用消息，只保留最近 3 个
- * @param messages - 原始消息数组
- * @returns 简化后的消息数组
- */
-function simplifyToolMessages(messages: BaseMessage[]): BaseMessage[] {
-  const toolIndices: number[] = [];
-  // 找到所有工具调用消息的索引
-  for (let i = 0; i < messages.length; i++) {
-    if (messages[i].type === "tool") {
-      toolIndices.push(i);
-    }
-  }
-  // 只保留最近 3 个工具调用消息
-  const recentToolIndices = new Set(toolIndices.slice(-3));
-  // 遍历所有消息，简化工具调用消息
-  return messages.map((msg, i) => {
-    if (msg.type !== "tool") return msg;
-    if (recentToolIndices.has(i)) return msg;
-    const toolMsg = msg as ToolMessage;
-    if (toolMsg.name === "read_file") return msg;
-    // 简化工具调用消息，只保留工具名
-    return new ToolMessage({
-      content: `[Previous: used ${toolMsg.name}]`,
-      tool_call_id: toolMsg.tool_call_id,
-      name: toolMsg.name,
-    });
-  });
 }

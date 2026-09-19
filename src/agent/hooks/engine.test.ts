@@ -97,7 +97,10 @@ describe("runHook", () => {
 
   it("returns block on exit 1 with stderr", async () => {
     const result = await runHook(
-      { matcher: "x", command: 'echo "blocked" >&2; exit 1' },
+      {
+        matcher: "x",
+        command: "node -e \"console.error('blocked'); process.exitCode = 1\"",
+      },
       {},
     );
     expect(result.action).toBe("block");
@@ -106,7 +109,10 @@ describe("runHook", () => {
 
   it("returns inject on exit 2 with stderr", async () => {
     const result = await runHook(
-      { matcher: "x", command: 'echo "note" >&2; exit 2' },
+      {
+        matcher: "x",
+        command: "node -e \"console.error('note'); process.exitCode = 2\"",
+      },
       {},
     );
     expect(result.action).toBe("inject");
@@ -120,7 +126,11 @@ describe("runHook", () => {
 
   it("passes env variables", async () => {
     const result = await runHook(
-      { matcher: "x", command: "echo $TEST_VAR >&2; exit 1" },
+      {
+        matcher: "x",
+        command:
+          'node -e "console.error(process.env.TEST_VAR); process.exitCode = 1"',
+      },
       { TEST_VAR: "hello" },
     );
     expect(result.action).toBe("block");
@@ -157,7 +167,12 @@ describe("runPreToolUseHooks", () => {
     mockedReadFileSync.mockReturnValue(
       JSON.stringify({
         hooks: {
-          PreToolUse: [{ matcher: "exec", command: 'echo "no" >&2; exit 1' }],
+          PreToolUse: [
+            {
+              matcher: "exec",
+              command: "node -e \"console.error('no'); process.exitCode = 1\"",
+            },
+          ],
         },
       }),
     );
@@ -175,7 +190,13 @@ describe("runPreToolUseHooks", () => {
     mockedReadFileSync.mockReturnValue(
       JSON.stringify({
         hooks: {
-          PreToolUse: [{ matcher: "exec", command: 'echo "note" >&2; exit 2' }],
+          PreToolUse: [
+            {
+              matcher: "exec",
+              command:
+                "node -e \"console.error('note'); process.exitCode = 2\"",
+            },
+          ],
         },
       }),
     );
@@ -194,8 +215,16 @@ describe("runPreToolUseHooks", () => {
       JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "exec", command: 'printf "a" >&2; exit 2' },
-            { matcher: "exec", command: 'printf "b" >&2; exit 2' },
+            {
+              matcher: "exec",
+              command:
+                "node -e \"process.stderr.write('a'); process.exitCode = 2\"",
+            },
+            {
+              matcher: "exec",
+              command:
+                "node -e \"process.stderr.write('b'); process.exitCode = 2\"",
+            },
           ],
         },
       }),
@@ -215,8 +244,16 @@ describe("runPreToolUseHooks", () => {
       JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "exec", command: 'echo "first" >&2; exit 1' },
-            { matcher: "exec", command: 'echo "second" >&2; exit 2' },
+            {
+              matcher: "exec",
+              command:
+                "node -e \"console.error('first'); process.exitCode = 1\"",
+            },
+            {
+              matcher: "exec",
+              command:
+                "node -e \"console.error('second'); process.exitCode = 2\"",
+            },
           ],
         },
       }),
@@ -262,7 +299,12 @@ describe("runPostToolUseHooks", () => {
     mockedReadFileSync.mockReturnValue(
       JSON.stringify({
         hooks: {
-          PostToolUse: [{ matcher: "exec", command: 'echo "bad" >&2; exit 1' }],
+          PostToolUse: [
+            {
+              matcher: "exec",
+              command: "node -e \"console.error('bad'); process.exitCode = 1\"",
+            },
+          ],
         },
       }),
     );
@@ -282,7 +324,11 @@ describe("runPostToolUseHooks", () => {
       JSON.stringify({
         hooks: {
           PostToolUse: [
-            { matcher: "exec", command: 'echo "note" >&2; exit 2' },
+            {
+              matcher: "exec",
+              command:
+                "node -e \"console.error('note'); process.exitCode = 2\"",
+            },
           ],
         },
       }),
@@ -331,7 +377,11 @@ describe("runSessionStartHooks", () => {
       JSON.stringify({
         hooks: {
           SessionStart: [
-            { matcher: "", command: 'echo "welcome" >&2; exit 2' },
+            {
+              matcher: "",
+              command:
+                "node -e \"console.error('welcome'); process.exitCode = 2\"",
+            },
           ],
         },
       }),
@@ -344,7 +394,13 @@ describe("runSessionStartHooks", () => {
     mockedReadFileSync.mockReturnValue(
       JSON.stringify({
         hooks: {
-          SessionStart: [{ matcher: "", command: 'echo "warn" >&2; exit 1' }],
+          SessionStart: [
+            {
+              matcher: "",
+              command:
+                "node -e \"console.error('warn'); process.exitCode = 1\"",
+            },
+          ],
         },
       }),
     );

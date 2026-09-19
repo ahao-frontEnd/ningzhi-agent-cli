@@ -18,10 +18,11 @@ describe("memoryCreateTool", () => {
   });
 
   it("saves a memory with all fields", async () => {
+    const content = `test-fact-all-fields-${Date.now()}`;
     const result = await memoryCreateTool(
       {
         type: "fact",
-        content: "test-fact-all-fields",
+        content,
         keywords: ["test", "fact"],
         importance: 5,
       },
@@ -32,10 +33,10 @@ describe("memoryCreateTool", () => {
     const db = new Database(DB_PATH);
     try {
       const row = db
-        .prepare("SELECT * FROM memory WHERE content = 'test-fact-all-fields'")
-        .get() as any;
+        .prepare("SELECT * FROM memory WHERE content = ?")
+        .get(content) as any;
       expect(row.type).toBe("fact");
-      expect(row.content).toBe("test-fact-all-fields");
+      expect(row.content).toBe(content);
       expect(JSON.parse(row.keywords)).toEqual(["test", "fact"]);
       expect(row.importance).toBe(5);
       expect(row.session_id).toBe("test-thread");
@@ -45,8 +46,9 @@ describe("memoryCreateTool", () => {
   });
 
   it("saves a memory with default importance and no keywords", async () => {
+    const content = `test-preference-defaults-${Date.now()}`;
     const result = await memoryCreateTool(
-      { type: "preference", content: "test-preference-defaults" },
+      { type: "preference", content },
       { configurable: { thread_id: "test-thread-2" } },
     );
     expect(result).toBe("Memory saved successfully.");
@@ -54,10 +56,8 @@ describe("memoryCreateTool", () => {
     const db = new Database(DB_PATH);
     try {
       const row = db
-        .prepare(
-          "SELECT * FROM memory WHERE content = 'test-preference-defaults'",
-        )
-        .get() as any;
+        .prepare("SELECT * FROM memory WHERE content = ?")
+        .get(content) as any;
       expect(row.type).toBe("preference");
       expect(row.importance).toBe(3);
       expect(row.keywords).toBeNull();
@@ -68,8 +68,9 @@ describe("memoryCreateTool", () => {
   });
 
   it("trims content", async () => {
+    const content = `test-skill-trim-${Date.now()}`;
     const result = await memoryCreateTool(
-      { type: "skill", content: "  test-skill-trim  " },
+      { type: "skill", content: `  ${content}  ` },
       undefined,
     );
     expect(result).toBe("Memory saved successfully.");
@@ -77,9 +78,9 @@ describe("memoryCreateTool", () => {
     const db = new Database(DB_PATH);
     try {
       const row = db
-        .prepare("SELECT * FROM memory WHERE content = 'test-skill-trim'")
-        .get() as any;
-      expect(row.content).toBe("test-skill-trim");
+        .prepare("SELECT * FROM memory WHERE content = ?")
+        .get(content) as any;
+      expect(row.content).toBe(content);
       expect(row.session_id).toBe("default-session");
     } finally {
       db.close();

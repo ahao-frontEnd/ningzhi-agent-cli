@@ -22,9 +22,12 @@ describe("webFetchTool", () => {
 
     const result = await webFetchTool({ url: "https://example.com" });
 
-    expect(mockFetch).toHaveBeenCalledWith("https://example.com", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; NingzhiBot/1.0)" },
-    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; NingzhiBot/1.0)" },
+      }),
+    );
     expect(result).toBe("<html><body>Hello World</body></html>");
   });
 
@@ -91,8 +94,11 @@ describe("webFetchTool", () => {
 
     await webFetchTool({ url: "  https://example.com  " });
 
-    expect(mockFetch).toHaveBeenCalledWith("https://example.com", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; NingzhiBot/1.0)" },
-    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.objectContaining({
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; NingzhiBot/1.0)" },
+      }),
+    );
   });
 });

@@ -16,6 +16,7 @@ import { memoryCreateTool as memoryCreateToolImpl } from "./tools/memory_create_
 import { memoryRetrieveTool as memoryRetrieveToolImpl } from "./tools/memory_retrieve_tool";
 import { memoryDeleteTool as memoryDeleteToolImpl } from "./tools/memory_delete_tool";
 import { profileUpdateTool as profileUpdateToolImpl } from "./tools/profile_update_tool";
+import { agentTool as agentToolImpl } from "./tools/agent_tool";
 
 type NingzhiTool = DynamicStructuredTool & { permission_level: string };
 
@@ -235,6 +236,23 @@ const profileUpdateTool = createNingzhiTool(
   "write",
 );
 
+const agentTool = createNingzhiTool(
+  agentToolImpl,
+  {
+    name: "agent_tool",
+    description:
+      "Launch a sub-agent to execute an independent task. The sub-agent has access to all tools (except this one), skills, memory, and hooks. It will run to completion and return its final result. Use this for tasks that can be delegated, such as research, code generation, or data processing.",
+    schema: z.object({
+      prompt: z
+        .string()
+        .describe(
+          "A clear, self-contained task prompt for the sub-agent. It should include all necessary context because the sub-agent cannot see the current conversation history.",
+        ),
+    }),
+  },
+  "exec",
+);
+
 /**
  * 可能持久化输出，如果输出长度超过最大限制则保存到文件
  * @param {string} content - 要持久化的输出内容
@@ -283,4 +301,5 @@ export const tools: NingzhiTool[] = [
   memoryRetrieveTool,
   memoryDeleteTool,
   profileUpdateTool,
+  agentTool,
 ];
