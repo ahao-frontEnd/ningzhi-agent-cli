@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "exec",
+        "command": "echo 'post tool use Checking command...'"
+      },
+      {
+        "matcher": "exec",
+        "command": "node -e \"// require('fs').mkdirSync('docs',{recursive:true}); // require('fs').writeFileSync('docs/test.txt','hello')\""
+      },
+      {
+        "matcher": "profile_update",
+        "command": "echo 'profile_update Checking command...'"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "exec",
+        "command": "echo 'post tool use Checking command...'"
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "echo 'Session start hook'"
+      }
+    ]
+  }
+}

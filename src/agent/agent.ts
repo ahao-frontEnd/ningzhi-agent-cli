@@ -34,6 +34,8 @@ import { checkWritePermission } from "./permission/write";
 import { checkExecPermission } from "./permission/exec";
 import { checkNetworkPermission } from "./permission/network";
 
+import { runPreToolUseHooks, runPostToolUseHooks } from "./hooks";
+
 dotenv.config();
 
 // ── 模型 ──────────────────────────────────────────────────
@@ -185,13 +187,47 @@ async function toolNode(state: AgentState, config: any) {
         const tool = tools.find((t) => t.name === call.name);
         console.log(formatToolLog(call.name, JSON.stringify(call.args)));
         try {
+          const threadId = config?.configurable?.thread_id || "";
+          // PreToolUse hook
+          const preResult = await runPreToolUseHooks({
+            toolName: call.name,
+            toolArgs: call.args,
+            toolCallId: call.id ?? "",
+            threadId,
+          });
+          if (preResult.action === "block") {
+            return new ToolMessage({
+              content: preResult.reason,
+              tool_call_id: call.id ?? "",
+              name: call.name,
+            });
+          }
+
           if (!tool) throw new Error(`Tool "${call.name}" not found.`);
           const output = await tool.invoke(
             { ...call, type: "tool_call" },
             config,
           );
-          const content =
+          let content =
             typeof output === "string" ? output : JSON.stringify(output);
+
+          // PostToolUse hook
+          const postResult = await runPostToolUseHooks({
+            toolName: call.name,
+            toolArgs: call.args,
+            toolOutput: content,
+            toolCallId: call.id ?? "",
+            threadId,
+          });
+          if (postResult.action === "block") {
+            content = postResult.reason;
+          } else if (postResult.action === "inject") {
+            content = `[Hook injection]\n${postResult.message}\n\n${content}`;
+          }
+          if (preResult.action === "inject") {
+            content = `[Hook injection]\n${preResult.message}\n\n${content}`;
+          }
+          // tool 上下文持久化
           const finalContent = await maybePersistedOutput(
             content,
             call.id ?? "",

@@ -7,6 +7,7 @@ import { runAgentStream, compressContext } from "./agent";
 import { getModelContextLimit } from "./context";
 import { initColors, color, formatToolLog } from "./colors";
 import { initDb } from "./db";
+import { runSessionStartHooks } from "./hooks";
 
 import { threadId, commands } from "./commands";
 
@@ -163,6 +164,7 @@ async function chat(userInput: string): Promise<void> {
 
 async function interactiveChat(): Promise<void> {
   await printBanner();
+  await runSessionStartHooks(threadId);
 
   while (true) {
     const userInput = await prompt(color.userPrefix());
