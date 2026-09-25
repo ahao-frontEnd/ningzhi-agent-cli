@@ -3,11 +3,12 @@ import * as readline from "readline"; // readline 用于处理命令行输入输
 import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runAgentStream, compressContext } from "./agent";
+import { runAgentStream, compressContext, initAgent } from "./agent";
 import { getModelContextLimit } from "./context";
 import { initColors, color, formatToolLog } from "./colors";
 import { initDb } from "./db";
 import { runSessionStartHooks } from "./hooks";
+import { shutdownMcp } from "./mcp";
 
 import { threadId, commands } from "./commands";
 
@@ -80,7 +81,10 @@ async function chat(userInput: string): Promise<void> {
       rl.close();
     }
   };
+  // 让 process.stdin 开始发出 "keypress" 事件（默认不发）
+  // 这样才能在 AI 请求过程中 实时捕获 ESC 键而不必等待用户按回车
   readline.emitKeypressEvents(process.stdin);
+  // 监听 process.stdin 的 "keypress" 事件，捕获 ESC 键
   process.stdin.on("keypress", escListener);
 
   let usageMetadata;
@@ -202,6 +206,16 @@ async function interactiveChat(): Promise<void> {
 async function main(): Promise<void> {
   await initColors();
   initDb();
+  await initAgent();
+
+  // SIGINT （Signal Interrupt，中断信号， 操作系统发给进程的一种"请你停下来"的信号）
+  // 注册一次性的 SIGINT  信号处理（用户按 Ctrl+C 时触发）
+  // 如果用户在退出流程进行中 再次 按 Ctrl+C，监听器已经被移除，不会重复执行`shutdownMcp()` ，避免重复关闭造成的错误
+  // 先优雅关闭所有 MCP 子进程连接，再正常退出，避免残留子进程（避免子进程变成孤儿进程。）
+  process.once("SIGINT", async () => {
+    await shutdownMcp();
+    process.exit(0); // 退出码 0 表示正常退出
+  });
 
   const program = new Command();
   program.name(pkg.name).description(pkg.description).version(pkg.version);
@@ -213,6 +227,8 @@ async function main(): Promise<void> {
   } else {
     await interactiveChat();
   }
+  // 确保在退出前关闭所有 MCP 子进程连接
+  await shutdownMcp();
 }
 
 main();

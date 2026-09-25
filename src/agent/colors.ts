@@ -48,6 +48,10 @@ export const color = {
 
   gray: (text: string) => ck().gray(text),
   tokenInfo: (text: string) => ck().gray(text),
+
+  warn: (text: string) => ck().yellow(text),
+  info: (text: string) => ck().blueBright(text),
+  good: (text: string) => ck().greenBright(text),
 };
 
 // 格式化工具调用日志：形如 [Tool] toolName called: detail

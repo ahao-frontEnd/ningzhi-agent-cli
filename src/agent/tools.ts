@@ -18,7 +18,10 @@ import { memoryDeleteTool as memoryDeleteToolImpl } from "./tools/memory_delete_
 import { profileUpdateTool as profileUpdateToolImpl } from "./tools/profile_update_tool";
 import { agentTool as agentToolImpl } from "./tools/agent_tool";
 
-type NingzhiTool = DynamicStructuredTool & { permission_level: string };
+import { initMcpTools } from "./mcp";
+
+// DynamicStructuredTool 是一个结构化的工具，用于处理输入和输出。
+export type NingzhiTool = DynamicStructuredTool & { permission_level: string };
 
 function createNingzhiTool(
   impl: (...args: any[]) => any,
@@ -288,7 +291,7 @@ ${content.slice(0, 2000)}
 }
 
 // 导出所有工具
-export const tools: NingzhiTool[] = [
+export const nativeTools: NingzhiTool[] = [
   readFileTool,
   writeFileTool,
   execTool,
@@ -303,3 +306,10 @@ export const tools: NingzhiTool[] = [
   profileUpdateTool,
   agentTool,
 ];
+
+export let tools: NingzhiTool[] = [...nativeTools];
+
+export async function initTools(): Promise<void> {
+  const mcpTools = await initMcpTools();
+  tools = [...nativeTools, ...mcpTools];
+}

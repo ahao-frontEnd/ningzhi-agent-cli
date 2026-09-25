@@ -23,7 +23,7 @@ import * as dotenv from "dotenv";
 import * as fs from "node:fs";
 
 import { DB_PATH } from "./db";
-import { tools, maybePersistedOutput } from "./tools";
+import { tools, maybePersistedOutput, initTools } from "./tools";
 
 import { compressMessages, findSafeCompressionIndex } from "./context";
 import { formatToolLog } from "./colors";
@@ -57,15 +57,15 @@ const StateAnnotation = Annotation.Root({
     default: () => [],
   }),
   contextSummary: Annotation<string | null>({
-    reducer: (_prev, next) => next, // 保持最新摘要
+    reducer: (_prev: string | null, next: string | null) => next, // 保持最新摘要
     default: () => null,
   }),
   compressionCount: Annotation<number>({
-    reducer: (_prev, next) => next, // 保持最新压缩次数
+    reducer: (_prev: number, next: number) => next, // 保持最新压缩次数
     default: () => 0,
   }),
   lastCompressedIndex: Annotation<number>({
-    reducer: (_prev, next) => next, // 保持最新压缩索引
+    reducer: (_prev: number, next: number) => next, // 保持最新压缩索引
     default: () => 0,
   }),
 });
@@ -153,8 +153,8 @@ function createAgentGraph(toolList: typeof tools) {
     // 找到所有工具调用消息的 id
     const toolMessageIds = new Set(
       messages
-        .filter((msg) => msg.type === "tool")
-        .map((msg) => (msg as ToolMessage).tool_call_id),
+        .filter((msg: BaseMessage) => msg.type === "tool")
+        .map((msg: ToolMessage | any) => msg.tool_call_id),
     );
     // 找到最后一个 AI 消息
     let aiMessage: BaseMessage | undefined;
@@ -199,6 +199,8 @@ function createAgentGraph(toolList: typeof tools) {
         decision = checkExecPermission(call);
       } else if (level === "network") {
         decision = checkNetworkPermission(call);
+      } else if (level === "mcp") {
+        decision = { action: "confirm" as const };
       } else {
         decision = { action: "allow" as const };
       }
@@ -332,8 +334,25 @@ function createAgentGraph(toolList: typeof tools) {
 }
 
 // ── Agent 创建 ────────────────────────────────────────────
-export const agent = createAgentGraph(tools);
-const subAgent = createAgentGraph(tools.filter((t) => t.name !== "agent_tool"));
+let agent: CompiledStateGraph<any, any, any> | null = null;
+let subAgent: CompiledStateGraph<any, any, any> | null = null;
+
+export async function initAgent(): Promise<void> {
+  await initTools();
+  agent = createAgentGraph(tools);
+  subAgent = createAgentGraph(tools.filter((t) => t.name !== "agent_tool"));
+}
+
+function getAgent(): CompiledStateGraph<any, any, any> {
+  if (!agent) throw new Error("Agent not initialized. Call initAgent() first.");
+  return agent;
+}
+
+function getSubAgent(): CompiledStateGraph<any, any, any> {
+  if (!subAgent)
+    throw new Error("Agent not initialized. Call initAgent() first.");
+  return subAgent;
+}
 
 // ── 核心运行逻辑 ──────────────────────────────────────────
 async function _runAgent(
@@ -425,7 +444,7 @@ export async function runAgentStream(
   signal?: AbortSignal,
 ): Promise<{ response: string; usageMetadata?: UsageMetadata }> {
   return _runAgent(
-    agent,
+    getAgent(),
     userMessage,
     onToken,
     onToolConfirmation,
@@ -442,7 +461,7 @@ export async function runAgentStream(
 export async function runSubAgent(prompt: string): Promise<string> {
   const threadId = `subagent-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const result = await _runAgent(
-    subAgent,
+    getSubAgent(),
     prompt.trim(),
     () => {}, // 不需要流式输出
     async () => true, // subagent 自动确认 tools
@@ -457,7 +476,7 @@ export async function compressContext(
   threadId: string,
 ): Promise<{ didCompress: boolean; count: number }> {
   const config = { configurable: { thread_id: threadId } };
-  const currentState = await agent.getState(config);
+  const currentState = await getAgent().getState(config);
   const messages = currentState.values.messages || [];
   const existingSummary = currentState.values.contextSummary || null;
   const lastIndex = currentState.values.lastCompressedIndex || 0;
@@ -473,7 +492,7 @@ export async function compressContext(
   const toCompress = messages.slice(lastIndex, safeIndex);
   const newSummary = await compressMessages(toCompress, existingSummary);
 
-  await agent.updateState(config, {
+  await getAgent().updateState(config, {
     contextSummary: newSummary,
     lastCompressedIndex: safeIndex,
     compressionCount: count + 1,
