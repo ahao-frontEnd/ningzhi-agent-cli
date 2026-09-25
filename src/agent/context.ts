@@ -1,22 +1,53 @@
-import { ChatOpenAI } from "@langchain/openai";
 import {
   BaseMessage,
   HumanMessage,
   AIMessage,
   ToolMessage,
 } from "@langchain/core/messages";
+import { createModel, modelConfig } from "./model";
 
 const MODEL_CONTEXT_LIMITS: Record<string, number> = {
+  // Moonshot / Kimi
   "moonshot-v1-8k": 8192,
   "moonshot-v1-32k": 32768,
   "moonshot-v1-128k": 131072,
   "kimi-k2.6": 256000,
-  // "kimi-k2.6": 3000,
+
+  // DeepSeek
+  "deepseek-chat": 1048576,
+  "deepseek-reasoner": 1048576,
+  "deepseek-v3": 65536,
+  "deepseek-v3.1": 131072,
+  "deepseek-v4": 1048576,
+  "deepseek-r1": 65536,
+
+  // MiniMax
+  "minimax-text-01": 1048576,
+  "minimax-m1": 1048576,
+  "minimax-m3": 1048576,
+
+  // GLM (智谱)
+  "glm-4": 131072,
+  "glm-4-plus": 131072,
+  "glm-4-air": 131072,
+  "glm-4-flash": 131072,
+  "glm-4v": 131072,
+
+  // Qwen (Alibaba)
+  "qwen-max": 32768,
+  "qwen-plus": 131072,
+  "qwen-plus-2025-07-28": 1048576,
+  "qwen-turbo": 1048576,
+  "qwen-long": 10485760,
+
+  // Xiaomi MiMo
+  "mimo-7b": 32768,
+  "mimo-v2.5": 1048576,
 };
 
 export function getModelContextLimit(): number {
-  const modelName = process.env.MOONSHOT_MODEL_NAME || "";
-  return MODEL_CONTEXT_LIMITS[modelName] || 128000;
+  const modelName = modelConfig.model.model || "";
+  return MODEL_CONTEXT_LIMITS[modelName.toLowerCase()] || 128000;
 }
 
 /**
@@ -62,17 +93,7 @@ export async function compressMessages(
   // 构建压缩提示
   const prompt = `请将以下对话内容压缩为一段简洁的摘要，保留关键信息、决策和结论：\n\n${text}`;
   // 调用大模型压缩摘要
-  const model = new ChatOpenAI({
-    model: process.env.MOONSHOT_MODEL_NAME,
-    apiKey: process.env.MOONSHOT_API_KEY,
-    configuration: {
-      baseURL: "https://api.moonshot.cn/v1",
-    },
-    streaming: false,
-    modelKwargs: {
-      thinking: { type: "disabled" },
-    },
-  });
+  const model = createModel({ streaming: false });
   // 处理大模型响应
   // 如果响应内容是字符串，直接返回；如果是对象，转换为字符串
   const response = await model.invoke([new HumanMessage(prompt)]);

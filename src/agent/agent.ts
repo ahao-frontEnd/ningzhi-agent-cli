@@ -1,4 +1,3 @@
-import { ChatOpenAI } from "@langchain/openai";
 import { SqliteSaver } from "@langchain/langgraph-checkpoint-sqlite";
 import {
   type UsageMetadata,
@@ -38,15 +37,10 @@ import { runPreToolUseHooks, runPostToolUseHooks } from "./hooks";
 
 dotenv.config();
 
+import { createModel } from "./model";
+
 // ── 模型 ──────────────────────────────────────────────────
-const model = new ChatOpenAI({
-  model: process.env.MOONSHOT_MODEL_NAME,
-  apiKey: process.env.MOONSHOT_API_KEY,
-  configuration: {
-    baseURL: "https://api.moonshot.cn/v1",
-  },
-  streaming: true,
-});
+const model = createModel({ streaming: true });
 
 // ── State Schema ──────────────────────────────────────────
 const StateAnnotation = Annotation.Root({
