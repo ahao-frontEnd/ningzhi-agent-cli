@@ -27,6 +27,13 @@ jest.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
   })),
 }));
 
+// Mock MCP SDK 的 StreamableHTTPClientTransport 类，避免真实启动 HTTP 连接
+jest.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
+  StreamableHTTPClientTransport: jest.fn().mockImplementation(() => ({
+    close: mockClose,
+  })),
+}));
+
 const { readFileSync } = require("fs");
 
 describe("loadMcpConfig", () => {
@@ -151,6 +158,64 @@ describe("initializeMcpClients", () => {
 
     expect(connections).toHaveLength(1);
     expect(connections[0].name).toBe("good");
+    expect(consoleError).toHaveBeenCalled();
+
+    consoleError.mockRestore();
+  });
+
+  it("connects to a url-based server successfully", async () => {
+    const {
+      StreamableHTTPClientTransport,
+    } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
+
+    readFileSync.mockReturnValue(
+      JSON.stringify({
+        mcpServers: {
+          github: {
+            url: "https://api.githubcopilot.com/mcp/",
+            headers: { Authorization: "Bearer test-token" },
+          },
+        },
+      }),
+    );
+
+    mockConnect.mockResolvedValue(undefined);
+    mockListTools.mockResolvedValue({
+      tools: [
+        {
+          name: "search_issues",
+          description: "Search issues",
+          inputSchema: {},
+        },
+      ],
+    });
+
+    const connections = await initializeMcpClients();
+    expect(connections).toHaveLength(1);
+    expect(connections[0].name).toBe("github");
+    expect(connections[0].tools).toHaveLength(1);
+    expect(StreamableHTTPClientTransport).toHaveBeenCalledTimes(1);
+    expect(StreamableHTTPClientTransport).toHaveBeenCalledWith(
+      new URL("https://api.githubcopilot.com/mcp/"),
+      { requestInit: { headers: { Authorization: "Bearer test-token" } } },
+    );
+  });
+
+  it("throws on invalid config missing both url and command", async () => {
+    readFileSync.mockReturnValue(
+      JSON.stringify({
+        mcpServers: {
+          bad: { args: ["foo"] },
+        },
+      }),
+    );
+
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const connections = await initializeMcpClients();
+
+    expect(connections).toHaveLength(0);
     expect(consoleError).toHaveBeenCalled();
 
     consoleError.mockRestore();

@@ -2,12 +2,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { color } from "../colors";
 
 export interface McpServerConfig {
-  command: string;
+  command?: string;
   args?: string[];
   env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
 }
 
 export interface McpToolInfo {
@@ -19,7 +23,7 @@ export interface McpToolInfo {
 export interface McpServerConnection {
   name: string;
   client: Client;
-  transport: StdioClientTransport;
+  transport: Transport;
   tools: McpToolInfo[];
 }
 
@@ -67,15 +71,38 @@ async function withTimeout<T>(
   ]);
 }
 
+// 根据配置创建 MCP 服务器的传输层，根据配置是使用 HTTP 还是 Stdio 连接。
+// @param config - MCP 服务器的配置对象，包含连接信息和工具列表。
+// @returns - 创建的 MCP 服务器传输层实例
+function createMcpTransport(config: McpServerConfig): Transport {
+  if (config.url) {
+    const url = new URL(config.url);
+    // `RequestInit` 是 Fetch API 中描述`fetch()` 请求配置项的接口类型，
+    // 包含`method` 、`headers` 、`body` 、`credentials` 等字段
+    // `@types/node` 已经把它声明为全局类型，所以不用导入 ==》 tsconfig.json 中的  compilerOptions 的"types": ["node", "jest"],
+    const requestInit: RequestInit | undefined = config.headers
+      ? { headers: config.headers }
+      : undefined;
+    return new StreamableHTTPClientTransport(url, { requestInit });
+  }
+  // 如果配置了`command`，则使用`StdioClientTransport`
+  if (config.command) {
+    return new StdioClientTransport({
+      command: config.command,
+      args: config.args,
+      env: config.env,
+    });
+  }
+  throw new Error(
+    'Invalid MCP server config: must have either "command" or "url"',
+  );
+}
+
 export async function connectMcpServer(
   name: string,
   config: McpServerConfig,
 ): Promise<McpServerConnection> {
-  const transport = new StdioClientTransport({
-    command: config.command,
-    args: config.args,
-    env: config.env,
-  });
+  const transport = createMcpTransport(config);
 
   const client = new Client(
     { name: "ningzhi", version: "0.0.1" },
@@ -83,7 +110,7 @@ export async function connectMcpServer(
   );
 
   await withTimeout(
-    client.connect(transport),
+    client.connect(transport), // 通过传输层连接到 MCP 服务器
     CONNECT_TIMEOUT_MS,
     `MCP server "${name}" connect`,
   );
