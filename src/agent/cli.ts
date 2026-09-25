@@ -1,14 +1,10 @@
-#!/usr/bin/env node
 import * as readline from "readline"; // readline 用于处理命令行输入输出，提供交互式界面
-import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { runAgentStream, compressContext, initAgent } from "./agent";
+import { runAgentStream, compressContext } from "./agent";
 import { getModelContextLimit } from "./context";
-import { initColors, color, formatToolLog } from "./colors";
-import { initDb } from "./db";
+import { color, formatToolLog } from "./colors";
 import { runSessionStartHooks } from "./hooks";
-import { shutdownMcp } from "./mcp";
 
 import { threadId, commands } from "./commands";
 
@@ -58,7 +54,7 @@ async function printBanner(): Promise<void> {
 
 function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {
-    const rl = createInterface();
+    const rl = createInterface(); // 创建 readline 接口，用于处理用户输入
     rl.question(question, (answer) => {
       rl.close();
       resolve(answer);
@@ -117,6 +113,7 @@ async function chat(userInput: string): Promise<void> {
     }
   } finally {
     process.stdin.removeListener("keypress", escListener);
+    // 关闭接口，"交出对 stdin 的控制权"，移除 readline 挂在 stdin 上的内部监听
     rl.close();
   }
 
@@ -161,12 +158,15 @@ async function chat(userInput: string): Promise<void> {
       process.stdout.write("\n" + color.tokenInfo(tokenText));
     }
   }
-
   process.stdout.write("\n\n");
-  rl.resume(); // 恢复 readline, 作用是等待用户输入下一个命令
+  // 在本轮对话的 readline 接口关闭后，把`process.stdin` 恢复回“流动模式”，
+  // 确保下一轮`prompt()` 能正常读到用户输入
+  // `rl.close()` 移除了所有消费者之后，stdin 可能退回暂停模式。
+  // 如果不恢复，下一轮主循环里`prompt()` 新建的接口有可能出现“提示符显示了但打字没反应”的情况
+  rl.resume();
 }
 
-async function interactiveChat(): Promise<void> {
+export async function interactiveChat(): Promise<void> {
   await printBanner();
   await runSessionStartHooks(threadId);
 
@@ -202,33 +202,3 @@ async function interactiveChat(): Promise<void> {
     }
   }
 }
-
-async function main(): Promise<void> {
-  await initColors();
-  initDb();
-  await initAgent();
-
-  // SIGINT （Signal Interrupt，中断信号， 操作系统发给进程的一种"请你停下来"的信号）
-  // 注册一次性的 SIGINT  信号处理（用户按 Ctrl+C 时触发）
-  // 如果用户在退出流程进行中 再次 按 Ctrl+C，监听器已经被移除，不会重复执行`shutdownMcp()` ，避免重复关闭造成的错误
-  // 先优雅关闭所有 MCP 子进程连接，再正常退出，避免残留子进程（避免子进程变成孤儿进程。）
-  process.once("SIGINT", async () => {
-    await shutdownMcp();
-    process.exit(0); // 退出码 0 表示正常退出
-  });
-
-  const program = new Command();
-  program.name(pkg.name).description(pkg.description).version(pkg.version);
-
-  // 如果带了命令参数，使用 commander 解析
-  // 否则直接进入交互模式（pnpm dev 的情况）
-  if (process.argv.length > 2) {
-    program.parse();
-  } else {
-    await interactiveChat();
-  }
-  // 确保在退出前关闭所有 MCP 子进程连接
-  await shutdownMcp();
-}
-
-main();

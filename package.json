@@ -6,12 +6,12 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "ningzhi": "dist/agent/cli.js"
+    "ningzhi": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && cp -r src/agent/skills/* dist/agent/skills/",
-    "dev": "ts-node src/agent/cli.ts",
-    "start": "node dist/agent/cli.js",
+    "build": "tsc && node -e \"require('fs').cpSync('src/agent/skills', 'dist/agent/skills', { recursive: true }); require('fs').cpSync('src/agent/mcp/mcp.json', 'dist/agent/mcp/mcp.json')\"",
+    "dev": "ts-node src/index.ts",
+    "start": "node dist/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
