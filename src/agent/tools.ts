@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 
 import { readFileTool as readFileToolImpl } from "./tools/read_file_tool";
 import { writeFileTool as writeFileToolImpl } from "./tools/write_file_tool";
@@ -272,7 +273,7 @@ export async function maybePersistedOutput(
   }
   // 生成唯一文件名
   const id = toolCallId || Math.random().toString(36).slice(2, 9);
-  const dir = resolve(process.cwd(), "./.tool_output");
+  const dir = resolve(homedir(), ".ningzhiAgentCli", ".tool_output");
   const filePath = resolve(dir, `tool_output_${id}.txt`);
   // 确保目录存在
   await mkdir(dir, { recursive: true });
