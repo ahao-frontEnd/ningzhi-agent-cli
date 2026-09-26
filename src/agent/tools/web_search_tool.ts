@@ -1,14 +1,20 @@
 import { TavilySearch } from "@langchain/tavily";
+import { getEnv } from "../config";
 
 export async function webSearchTool({
   query,
 }: {
   query: string;
 }): Promise<string> {
+  const tavilyApiKey = getEnv("TAVILY_API_KEY");
+  if (!tavilyApiKey) {
+    return "Error: 未配置 TAVILY_API_KEY。请在 ~/.ningzhi/ningzhi.json 的 env 中设置 TAVILY_API_KEY。";
+  }
+
   const tavilySearch = new TavilySearch({
     maxResults: 2,
     topic: "general",
-    tavilyApiKey: process.env.TAVILY_API_KEY,
+    tavilyApiKey,
   });
 
   try {

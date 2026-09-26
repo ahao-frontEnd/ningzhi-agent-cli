@@ -4,7 +4,8 @@ import {
   AIMessage,
   ToolMessage,
 } from "@langchain/core/messages";
-import { createModel, modelConfig } from "./model";
+import { createModel } from "./model";
+import { getModelConfig } from "./config";
 
 const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   // Moonshot / Kimi
@@ -46,7 +47,7 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
 };
 
 export function getModelContextLimit(): number {
-  const modelName = modelConfig.model.model || "";
+  const modelName = getModelConfig().model || "";
   return MODEL_CONTEXT_LIMITS[modelName.toLowerCase()] || 128000;
 }
 
