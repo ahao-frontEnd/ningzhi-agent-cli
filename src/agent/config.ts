@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
-const CONFIG_DIR = path.join(os.homedir(), ".ningzhi");
+const CONFIG_DIR = path.join(os.homedir(), ".ningzhiAgentCli");
 const CONFIG_PATH = path.join(CONFIG_DIR, "ningzhi.json");
 
 interface ModelConfig {

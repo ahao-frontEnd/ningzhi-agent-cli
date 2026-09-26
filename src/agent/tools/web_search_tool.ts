@@ -8,7 +8,7 @@ export async function webSearchTool({
 }): Promise<string> {
   const tavilyApiKey = getEnv("TAVILY_API_KEY");
   if (!tavilyApiKey) {
-    return "Error: 未配置 TAVILY_API_KEY。请在 ~/.ningzhi/ningzhi.json 的 env 中设置 TAVILY_API_KEY。";
+    return "Error: 未配置 TAVILY_API_KEY。请在 ~/.ningzhiAgentCli/ningzhi.json 的 env 中设置 TAVILY_API_KEY。";
   }
 
   const tavilySearch = new TavilySearch({

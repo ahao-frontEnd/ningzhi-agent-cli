@@ -11,7 +11,7 @@ A personal AI Agent like OpenClaw, including tools, skills, memory, hook, sub-ag
 - LLM API: moonshot kimi
 - CLI tool: commander.js
 
-需要新建一个文件 `~/.ningzhi/ningzhi.json` 格式如下
+需要新建一个文件 `~/.ningzhiAgentCli/ningzhi.json` 格式如下
 
 ```js
 {

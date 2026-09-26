@@ -1,9 +1,15 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { formatRelativeTime, truncate } from "./utils";
 
-export const DB_PATH = join(process.cwd(), ".dbData", "checkpointer.db");
+export const DB_PATH = join(
+  homedir(),
+  ".ningzhiAgentCli",
+  ".dbData",
+  "checkpointer.db",
+);
 
 // recursive 多层路径创建，且目录已存在不报错，幂等性
 mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -155,13 +161,13 @@ export function initDb(): void {
 }
 
 /**
- * 列出最近 20 个会话（线程）
+ * 列出最近 10 个会话（线程）
  * @returns 会话列表
  */
 export function listRecentSessions(): SessionRow[] {
   const db = new Database(DB_PATH);
   try {
-    // 查询最近 20 个会话（线程）：取每个线程的最后活跃时间，以及最近一条用户提问
+    // 查询最近 10 个会话（线程）：取每个线程的最后活跃时间，以及最近一条用户提问
     const rows = db
       .prepare(
         `
@@ -193,7 +199,7 @@ export function listRecentSessions(): SessionRow[] {
         t.last_ts
       FROM thread_last t
       ORDER BY t.last_ts DESC  -- 按最后活跃时间倒序（最新的在前）
-      LIMIT 20                 -- 只取最近 20 个会话
+      LIMIT 10                 -- 只取最近 10 个会话
     `,
       )
       .all() as Array<{
