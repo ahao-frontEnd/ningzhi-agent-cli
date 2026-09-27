@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "fs";
-import { join } from "path";
+import { join } from "node:path";
+import { homedir } from "node:os";
 
 export interface SkillInfo {
   name: string;
@@ -47,28 +48,42 @@ export function discoverSkills(): SkillInfo[] {
   skills.length = 0;
   skillContentMap.clear();
 
-  // 读取当前目录(__dirname/skills)下的所有条目(文件 + 子目录)
-  const skillsDir = join(__dirname, "skills");
-  const entries = readdirSync(skillsDir); // entries 是 skills目录下的所有文件和目录名数组
-  for (const entry of entries) {
-    const entryPath = join(skillsDir, entry);
-    try {
-      // 只处理目录,跳过文件(如 index.ts 本身)
-      const entryStat = statSync(entryPath); // statSync 用于获取文件或目录的元信息,如是否为目录、大小等
-      if (!entryStat.isDirectory()) continue;
+  const skillDirs = [
+    join(homedir(), ".agents", "skills"), // 全局skill
+    join(homedir(), ".ningzhiAgentCli", ".agents", "skills"), // 工作空间，第三方安装的skill
+    join(homedir(), ".ningzhiAgentCli", "skills"), // 工作空间，用户自己创建的
+    join(__dirname, "skills"), // cli 内置的 skill
+  ];
 
-      // 读取子目录下的 SKILL.md 文件
-      const skillMdPath = join(entryPath, "SKILL.md");
-      const content = readFileSync(skillMdPath, "utf-8");
-      // 解析 frontmatter,提取 name 和 description
-      const { name, description } = parseFrontmatter(content);
-      // 仅当 name 和 description 都存在时,才注册为有效技能
-      if (name && description) {
-        skills.push({ name, description, dirPath: entryPath });
-        skillContentMap.set(name, content);
-      }
+  for (const skillsDir of skillDirs) {
+    let entries: string[];
+    try {
+      entries = readdirSync(skillsDir); // 读取目录下的所有文件和子目录
     } catch {
-      // 忽略没有 SKILL.md 的目录或解析失败的情况
+      continue;
+    }
+    for (const entry of entries) {
+      const entryPath = join(skillsDir, entry); // entryPath 是当前目录下的文件或子目录路径,包含 skillsDir
+      try {
+        const entryStat = statSync(entryPath); // 获取文件或目录的元信息
+        if (!entryStat.isDirectory()) continue;
+
+        const skillMdPath = join(entryPath, "SKILL.md");
+        const content = readFileSync(skillMdPath, "utf-8");
+        const { name, description } = parseFrontmatter(content);
+        if (name && description) {
+          const existing = skills.find((s) => s.name === name);
+          if (existing) {
+            existing.description = description;
+            existing.dirPath = entryPath;
+          } else {
+            skills.push({ name, description, dirPath: entryPath });
+          }
+          skillContentMap.set(name, content);
+        }
+      } catch {
+        // 忽略没有 SKILL.md 的目录或解析失败的情况
+      }
     }
   }
 
@@ -85,12 +100,14 @@ export function getSkillsListText(): string {
   // 将每个技能格式化为 Markdown 无序列表项: "- **技能名**: 描述"
   const lines = skills.map((s) => `- **${s.name}**: ${s.description}`);
   if (skills.length > 0) {
-    // 直接基于当前文件所在目录(__dirname)拼接 skills 路径
-    const skillsDir = join(__dirname, "skills");
     lines.push("");
-    // 追加 skills 目录位置提示,方便用户知道在哪里新增 skill
-    lines.push(`skills 的目录: ${skillsDir}`);
-    lines.push("如果增加新 skill，也要放在这个目录中");
+    lines.push("skills 的目录:");
+    lines.push(join(homedir(), ".agents", "skills"));
+    lines.push(join(homedir(), ".ningzhiAgentCli", ".agents", "skills"));
+    lines.push(join(homedir(), ".ningzhiAgentCli", "skills"));
+    lines.push(
+      `如果增加新 skill，必须放在 ${join(homedir(), ".ningzhiAgentCli", "skills")} 目录下`,
+    );
   }
   return lines.join("\n");
 }
