@@ -1,10 +1,9 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { color } from "../colors";
+import { getMCPServerConfig } from "../config";
 
 export interface McpServerConfig {
   command?: string;
@@ -27,32 +26,10 @@ export interface McpServerConnection {
   tools: McpToolInfo[];
 }
 
-const CONFIG_PATH = join(__dirname, "mcp.json");
 const CONNECT_TIMEOUT_MS = 60000;
 
 export function loadMcpConfig(): Record<string, McpServerConfig> {
-  try {
-    const content = readFileSync(CONFIG_PATH, "utf-8");
-    const parsed = JSON.parse(content);
-    if (!parsed.mcpServers || typeof parsed.mcpServers !== "object") {
-      console.warn(
-        color.warn('[MCP] mcp.json missing "mcpServers" field, skipping'),
-      );
-      return {};
-    }
-    return parsed.mcpServers as Record<string, McpServerConfig>;
-  } catch (err: any) {
-    // `ENOENT` 是 Node.js 中一个标准的系统错误码，全称是 Error NO ENTry （无此条目/文件不存在）
-    // 当调用`readFileSync` 时，如果`mcp.json` 文件 不存在 ，
-    // Node.js 会抛出一个带有`err.code === "ENOENT"` 的错误。
-    if (err.code === "ENOENT") {
-      return {}; // 文件不存在 → 返回空配置，静默跳过
-    }
-    console.warn(
-      color.warn(`[MCP] Failed to load mcp.json: ${err.message}, skipping`),
-    );
-    return {};
-  }
+  return getMCPServerConfig();
 }
 
 async function withTimeout<T>(

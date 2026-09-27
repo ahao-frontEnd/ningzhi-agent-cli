@@ -24,10 +24,19 @@ export interface HooksConfig {
   };
 }
 
+export interface McpServerConfig {
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  url?: string;
+  headers?: Record<string, string>;
+}
+
 interface NingzhiConfig {
   model?: ModelConfig;
   env?: Record<string, string>;
   hooks?: HooksConfig["hooks"];
+  mcpServers?: Record<string, McpServerConfig>;
 }
 
 let cachedConfig: NingzhiConfig | null = null;
@@ -87,6 +96,27 @@ export function getHooksConfig(): HooksConfig {
     return { hooks: config.hooks || {} };
   } catch {
     return { hooks: {} };
+  }
+}
+
+export function getMCPServerConfig(): Record<string, McpServerConfig> {
+  try {
+    const content = fs.readFileSync(CONFIG_PATH, "utf-8");
+    const parsed = JSON.parse(content) as NingzhiConfig;
+    if (!parsed.mcpServers || typeof parsed.mcpServers !== "object") {
+      console.warn('[MCP] ningzhi.json missing "mcpServers" field, skipping');
+      return {};
+    }
+    return parsed.mcpServers as Record<string, McpServerConfig>;
+  } catch (err: any) {
+    // `ENOENT` 是 Node.js 中一个标准的系统错误码，全称是 Error NO ENTry （无此条目/文件不存在）
+    // 当调用`readFileSync` 时，如果`ningzhi.json` 文件 不存在 ，
+    // Node.js 会抛出一个带有`err.code === "ENOENT"` 的错误。
+    if (err.code === "ENOENT") {
+      return {};
+    }
+    console.warn(`[MCP] Failed to load ningzhi.json: ${err.message}, skipping`);
+    return {};
   }
 }
 
