@@ -1,9 +1,16 @@
 import path from "node:path";
+import os from "node:os";
 
 export function isInProjectDir(filepath: string): boolean {
   const resolved = path.resolve(filepath);
   const cwd = path.resolve(process.cwd());
-  return resolved === cwd || resolved.startsWith(cwd + path.sep);
+  // 检查是否在项目根目录下
+  if (resolved === cwd || resolved.startsWith(cwd + path.sep)) {
+    return true;
+  }
+  const ningzhiDir = path.resolve(os.homedir(), ".ningzhiAgentCli");
+  // 检查是否在项目根目录下的子目录下
+  return resolved === ningzhiDir || resolved.startsWith(ningzhiDir + path.sep);
 }
 
 /*
