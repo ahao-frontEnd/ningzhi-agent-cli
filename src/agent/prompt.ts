@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { homedir } from "node:os";
 import { discoverSkills, getSkillsListText } from "./skills";
 
 discoverSkills();
@@ -12,7 +13,12 @@ const basePrompt =
 // 读取用户个人信息
 function readProfile(): string {
   try {
-    const filePath = path.join(process.cwd(), ".data", "profile.md");
+    const filePath = path.join(
+      homedir(),
+      ".ningzhiAgentCli",
+      ".data",
+      "profile.md",
+    );
     const content = fs.readFileSync(filePath, "utf-8").trim();
     return `<profile_info>${content}</profile_info>`;
   } catch {
