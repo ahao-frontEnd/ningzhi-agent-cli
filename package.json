@@ -9,7 +9,7 @@
     "ningzhi": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && node -e \"require('fs').cpSync('src/agent/skills', 'dist/agent/skills', { recursive: true }); require('fs').cpSync('src/agent/mcp/mcp.json', 'dist/agent/mcp/mcp.json')\"",
+    "build": "tsc && pnpm copy:mcp",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
     "test": "jest",
