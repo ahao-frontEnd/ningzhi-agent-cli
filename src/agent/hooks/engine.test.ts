@@ -14,6 +14,7 @@ import {
 // 测试里要用 mockReturnValue 控制文件内容，而不是真的读磁盘
 jest.mock("fs", () => ({
   ...jest.requireActual("fs"),
+  existsSync: jest.fn().mockReturnValue(true),
   readFileSync: jest.fn(),
 }));
 

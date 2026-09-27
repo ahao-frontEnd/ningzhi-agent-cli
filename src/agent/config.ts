@@ -11,9 +11,23 @@ interface ModelConfig {
   baseURL: string;
 }
 
+export interface HookConfig {
+  matcher: string;
+  command: string;
+}
+
+export interface HooksConfig {
+  hooks: {
+    PreToolUse?: HookConfig[];
+    PostToolUse?: HookConfig[];
+    SessionStart?: HookConfig[];
+  };
+}
+
 interface NingzhiConfig {
   model?: ModelConfig;
   env?: Record<string, string>;
+  hooks?: HooksConfig["hooks"];
 }
 
 let cachedConfig: NingzhiConfig | null = null;
@@ -65,4 +79,17 @@ export function getModelConfig(): ModelConfig {
 export function getEnv(key: string): string | undefined {
   const config = loadConfig();
   return config.env?.[key];
+}
+
+export function getHooksConfig(): HooksConfig {
+  try {
+    const config = loadConfig();
+    return { hooks: config.hooks || {} };
+  } catch {
+    return { hooks: {} };
+  }
+}
+
+export function clearConfigCache(): void {
+  cachedConfig = null;
 }

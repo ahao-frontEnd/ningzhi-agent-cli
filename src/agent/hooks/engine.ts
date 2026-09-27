@@ -1,44 +1,32 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import os from "node:os";
+import path from "node:path";
+
+// 配置目录，hook 命令中的相对路径（如 ./hooks/xxx）相对于此目录解析
+const CONFIG_DIR = path.join(os.homedir(), ".ningzhiAgentCli");
+import {
+  type HookConfig,
+  type HooksConfig,
+  getHooksConfig,
+  clearConfigCache,
+} from "../config";
 
 const execAsync = promisify(exec);
 
-export interface HookConfig {
-  matcher: string;
-  command: string;
-}
-
-export interface HooksConfig {
-  hooks: {
-    PreToolUse?: HookConfig[];
-    PostToolUse?: HookConfig[];
-    SessionStart?: HookConfig[];
-  };
-}
+export type { HookConfig, HooksConfig };
 
 export type HookResult =
   | { action: "continue" }
   | { action: "block"; reason: string }
   | { action: "inject"; message: string };
 
-let cachedConfig: HooksConfig | null = null;
-
 export function loadHooksConfig(): HooksConfig {
-  if (cachedConfig) return cachedConfig;
-  try {
-    const configPath = join(__dirname, "hooks.json");
-    const content = readFileSync(configPath, "utf-8");
-    cachedConfig = JSON.parse(content) as HooksConfig;
-    return cachedConfig;
-  } catch {
-    return { hooks: {} };
-  }
+  return getHooksConfig();
 }
 
 export function clearHooksCache(): void {
-  cachedConfig = null;
+  clearConfigCache();
 }
 
 export function matchHooks(
@@ -58,7 +46,7 @@ export async function runHook(
   console.log(`[Hook ${hookType}] ${hook.command}`);
   try {
     await execAsync(hook.command, {
-      cwd: process.cwd(),
+      cwd: CONFIG_DIR,
       env: { ...process.env, ...env },
       timeout,
     });
