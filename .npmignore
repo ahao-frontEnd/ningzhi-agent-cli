@@ -1,0 +1,46 @@
+# Source code — compiled output in dist/ is sufficient
+src/
+
+# Tests and coverage
+**/*.test.ts
+**/*.spec.ts
+__tests__/
+coverage/
+.nyc_output
+
+# Build tools & dev configs
+tsconfig.json
+jest.config.cjs
+pnpm-lock.yaml
+
+# Environment variables
+.env
+.env.*
+
+# IDE & editor
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# CI
+.github/
+
+# Documentation (README is kept automatically by npm)
+docs/
+
+# Development artifacts
+.claude/
+.data/
+.dbData/
+.tool_output
+.playwright-mcp
+*.log
+logs/
+
+# Dependencies
+node_modules/
+
+page-snapshot.yml
