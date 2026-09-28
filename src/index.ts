@@ -1,19 +1,32 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { initAgent } from "./agent/agent";
-import { initColors } from "./agent/colors";
-import { interactiveChat } from "./agent/cli";
-import { initDb } from "./agent/db";
-import { shutdownMcp } from "./agent/mcp";
+import { CONFIG_PATH } from "./agent/config";
 
 const pkg = JSON.parse(
   readFileSync(join(__dirname, "../package.json"), "utf-8"),
 );
 
 async function main(): Promise<void> {
+  if (!existsSync(CONFIG_PATH)) {
+    const { runInstall } = await import("./install");
+    await runInstall();
+    return;
+  }
+
+  const { initColors } = await import("./agent/colors");
+  const { initDb } = await import("./agent/db");
+  const { initAgent } = await import("./agent/agent");
+  const { interactiveChat } = await import("./agent/cli");
+  const { shutdownMcp } = await import("./agent/mcp");
+  const { checkModel } = await import("./agent/model");
+
   await initColors();
+  const valid = await checkModel();
+  if (!valid) {
+    return;
+  }
   initDb();
   await initAgent();
 

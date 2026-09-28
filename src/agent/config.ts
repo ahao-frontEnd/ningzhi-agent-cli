@@ -2,8 +2,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 
-const CONFIG_DIR = path.join(os.homedir(), ".ningzhiAgentCli");
-const CONFIG_PATH = path.join(CONFIG_DIR, "ningzhi.json");
+export const WORKSPACE_DIR = path.join(os.homedir(), ".ningzhiAgentCli");
+export const CONFIG_PATH = path.join(WORKSPACE_DIR, "ningzhi.json");
 
 interface ModelConfig {
   model: string;
@@ -70,16 +70,24 @@ export function getModelConfig(): ModelConfig {
   const config = loadConfig();
 
   if (!config.model || typeof config.model !== "object") {
-    throw new Error(`配置文件 ${CONFIG_PATH} 中缺少 model 对象`);
+    throw new Error(
+      `配置文件 ${CONFIG_PATH} 中缺少 model 对象，请参考 https://chat.ningzhi2.site/getStart`,
+    );
   }
   if (!config.model.model) {
-    throw new Error(`配置文件 ${CONFIG_PATH} 中缺少 model.model 字段`);
+    throw new Error(
+      `配置文件 ${CONFIG_PATH} 中缺少 model.model 字段，请参考 https://chat.ningzhi2.site/getStart`,
+    );
   }
   if (!config.model.apiKey) {
-    throw new Error(`配置文件 ${CONFIG_PATH} 中缺少 model.apiKey 字段`);
+    throw new Error(
+      `配置文件 ${CONFIG_PATH} 中缺少 model.apiKey 字段，请参考 https://chat.ningzhi2.site/getStart`,
+    );
   }
   if (!config.model.baseURL) {
-    throw new Error(`配置文件 ${CONFIG_PATH} 中缺少 model.baseURL 字段`);
+    throw new Error(
+      `配置文件 ${CONFIG_PATH} 中缺少 model.baseURL 字段，请参考 https://chat.ningzhi2.site/getStart`,
+    );
   }
 
   return config.model;

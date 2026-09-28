@@ -18,3 +18,18 @@ export function createModel(options?: { streaming?: boolean }): ChatOpenAI {
     },
   });
 }
+
+export async function checkModel(): Promise<boolean> {
+  if (modelConfig.apiKey.length < 20) {
+    try {
+      const model = createModel({ streaming: false });
+      await model.invoke([{ role: "user", content: "hi" }]);
+    } catch {
+      console.log(
+        `\n⚠️ API Key 验证失败，请检查配置是否正确\n\n请参考 https://chat.ningzhi2.site/getStart 修改配置\n`,
+      );
+      return false;
+    }
+  }
+  return true;
+}
