@@ -1,4 +1,16 @@
 import { HumanMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
+
+// context.ts 会 import model.ts，而 model.ts 在模块加载的顶层就执行 getModelConfig()
+// 读取真实的 ~/.ningzhiAgentCli/ningzhi.json。CI 环境没有该文件会在 import 阶段直接抛错，
+// 导致整个测试套件 “failed to run”。mock config 后测试只验证纯函数逻辑，与机器配置无关。
+jest.mock("./config", () => ({
+  getModelConfig: () => ({
+    model: "test-model",
+    apiKey: "test-api-key",
+    baseURL: "https://example.com/v1",
+  }),
+}));
+
 import { findSafeCompressionIndex } from "./context";
 
 describe("findSafeCompressionIndex", () => {

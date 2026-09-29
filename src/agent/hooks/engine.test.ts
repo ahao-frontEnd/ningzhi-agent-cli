@@ -18,7 +18,18 @@ jest.mock("fs", () => ({
   readFileSync: jest.fn(),
 }));
 
-import { readFileSync } from "fs";
+import { readFileSync, mkdirSync } from "fs";
+import os from "node:os";
+import path from "node:path";
+
+// runHook 内部用 child_process.exec 在 ~/.ningzhiAgentCli 目录下执行 hook 命令。
+// CI 的干净环境（如 GitHub Actions 的 Linux runner）上该目录不存在，
+// spawn 会因为 cwd 无效直接抛 ENOENT（连 shell 都不会启动），导致所有执行命令的用例失败。
+// 本机开发时目录通常已存在，所以本地测试无法暴露这个问题。
+const hooksCwd = path.join(os.homedir(), ".ningzhiAgentCli");
+beforeAll(() => {
+  mkdirSync(hooksCwd, { recursive: true });
+});
 
 describe("loadHooksConfig", () => {
   const mockedReadFileSync = readFileSync as jest.MockedFunction<

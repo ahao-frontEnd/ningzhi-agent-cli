@@ -18,6 +18,13 @@ jest.mock("@langchain/tavily", () => {
 
 import { TavilySearch } from "@langchain/tavily";
 
+// webSearchTool 内部调用 getEnv("TAVILY_API_KEY")，它会读取真实的
+// ~/.ningzhiAgentCli/ningzhi.json。CI 环境没有该配置文件会直接抛错，
+// 因此 mock config 模块，让测试不依赖任何机器上的真实配置文件。
+jest.mock("../config", () => ({
+  getEnv: jest.fn().mockReturnValue("test-tavily-api-key"),
+}));
+
 // jest.mocked() 把上面被 mock 的 TavilySearch 构造函数转为带类型信息的 mock，
 // 这样才能调用 .mockImplementation() 等 mock 控制方法，便于在每个用例里自定义构造行为
 const mockedTavilySearch = jest.mocked(TavilySearch);
