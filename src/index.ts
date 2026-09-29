@@ -9,6 +9,14 @@ const pkg = JSON.parse(
 );
 
 async function main(): Promise<void> {
+  // 提前解析命令行参数：commander 会自动处理 --version / --help 并退出，
+  // commander 在处理`--version` 和`--help` 时，内部会直接调用`process.exit(0)` 终止整个进程，
+  // 所以`program.parse()` 之后的代码根本不会执行到，无需手动`return`
+  // 这样即使配置文件不存在（首次使用!!!）也能正常查看版本和帮助
+  const program = new Command();
+  program.name(pkg.name).description(pkg.description).version(pkg.version);
+  program.parse();
+
   if (!existsSync(CONFIG_PATH)) {
     const { runInstall } = await import("./install");
     await runInstall();
@@ -39,13 +47,8 @@ async function main(): Promise<void> {
     process.exit(0);
   });
 
-  const program = new Command();
-  program.name(pkg.name).description(pkg.description).version(pkg.version);
-
-  // 如果带了命令参数，使用 commander 解析, 否则直接进入交互模式（pnpm dev 的情况）
-  if (process.argv.length > 2) {
-    program.parse();
-  } else {
+  // 没有带参数时进入交互模式
+  if (program.args.length === 0) {
     await interactiveChat();
   }
 
