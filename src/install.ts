@@ -139,7 +139,9 @@ export async function runInstall(): Promise<void> {
   console.log("⚠️  请编辑配置文件，填入你的 API 密钥：");
   console.log(`   ${CONFIG_PATH}`);
   console.log("");
-  console.log("📖 配置文档: https://chat.ningzhi2.site/getStart");
+  console.log(
+    "📖 配置文档: https://www.npmjs.com/package/ningzhi-agent-cli?activeTab=readme",
+  );
   console.log("");
   console.log("🔄 修改完成后，请重新运行 ningzhi");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");

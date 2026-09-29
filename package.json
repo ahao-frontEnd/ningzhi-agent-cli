@@ -1,6 +1,6 @@
 {
   "name": "ningzhi-agent-cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A personal AI Agent like OpenClaw, including tools, skills, memory, hook, sub-agent, MCP sever, etc. Run in the terminal.",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -20,7 +20,7 @@
   },
   "keywords": [],
   "author": "柠致",
-  "docs": "https://chat.ningzhi2.site/",
+  "docs": "https://www.npmjs.com/package/ningzhi-agent-cli?activeTab=readme",
   "license": "ISC",
   "dependencies": {
     "@langchain/core": "1.2.9",

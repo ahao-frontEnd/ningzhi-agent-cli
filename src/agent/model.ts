@@ -26,7 +26,7 @@ export async function checkModel(): Promise<boolean> {
       await model.invoke([{ role: "user", content: "hi" }]);
     } catch {
       console.log(
-        `\n⚠️ API Key 验证失败，请检查配置是否正确\n\n请参考 https://chat.ningzhi2.site/getStart 修改配置\n`,
+        `\n⚠️ API Key 验证失败，请检查配置是否正确\n\n请参考 https://www.npmjs.com/package/ningzhi-agent-cli?activeTab=readme 修改配置\n`,
       );
       return false;
     }

@@ -71,22 +71,22 @@ export function getModelConfig(): ModelConfig {
 
   if (!config.model || typeof config.model !== "object") {
     throw new Error(
-      `配置文件 ${CONFIG_PATH} 中缺少 model 对象，请参考 https://chat.ningzhi2.site/getStart`,
+      `配置文件 ${CONFIG_PATH} 中缺少 model 对象，请参考 https://www.npmjs.com/package/ningzhi-agent-cli?activeTab=readme`,
     );
   }
   if (!config.model.model) {
     throw new Error(
-      `配置文件 ${CONFIG_PATH} 中缺少 model.model 字段，请参考 https://chat.ningzhi2.site/getStart`,
+      `配置文件 ${CONFIG_PATH} 中缺少 model.model 字段，请参考 https://www.npmjs.com/package/ningzhi-agent-cli?activeTab=readme`,
     );
   }
   if (!config.model.apiKey) {
     throw new Error(
-      `配置文件 ${CONFIG_PATH} 中缺少 model.apiKey 字段，请参考 https://chat.ningzhi2.site/getStart`,
+      `配置文件 ${CONFIG_PATH} 中缺少 model.apiKey 字段，请参考 https://www.npmjs.com/package/ningzhi-agent-cli?activeTab=readme`,
     );
   }
   if (!config.model.baseURL) {
     throw new Error(
-      `配置文件 ${CONFIG_PATH} 中缺少 model.baseURL 字段，请参考 https://chat.ningzhi2.site/getStart`,
+      `配置文件 ${CONFIG_PATH} 中缺少 model.baseURL 字段，请参考 https://www.npmjs.com/package/ningzhi-agent-cli?activeTab=readme`,
     );
   }
 
