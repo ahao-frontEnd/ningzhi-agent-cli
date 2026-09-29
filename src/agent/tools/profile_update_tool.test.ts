@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 describe("profileUpdateTool", () => {
   const testDir = join(process.cwd(), "test_profile_update_tool_dir");
-  const dataDir = join(testDir, ".data");
+  const dataDir = join(testDir, ".ningzhiAgentCli", ".data");
   const profilePath = join(dataDir, "profile.md");
 
   beforeAll(async () => {
@@ -17,7 +17,7 @@ describe("profileUpdateTool", () => {
 
   beforeEach(async () => {
     await rm(dataDir, { recursive: true, force: true });
-    jest.spyOn(process, "cwd").mockReturnValue(testDir); // 模拟当前工作目录为测试目录
+    jest.spyOn(require("os"), "homedir").mockReturnValue(testDir); // 模拟用户主目录为测试目录, 避免读写真实 ~/.ningzhiAgentCli
   });
 
   afterEach(() => {

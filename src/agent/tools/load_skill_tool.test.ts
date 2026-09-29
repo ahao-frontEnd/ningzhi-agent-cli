@@ -11,7 +11,7 @@ describe("loadSkillTool", () => {
   let homedirSpy: jest.SpyInstance;
   beforeAll(() => {
     homedirSpy = jest.spyOn(require("os"), "homedir").mockReturnValue(tempDir);
-    const plannerDir = join(tempDir, ".agent", "skills", "planner");
+    const plannerDir = join(tempDir, ".agents", "skills", "planner");
     mkdirSync(plannerDir, { recursive: true });
     writeFileSync(
       join(plannerDir, "SKILL.md"),
@@ -61,7 +61,7 @@ describe("loadSkillTool", () => {
   });
 
   it("overrides skills from later directories", async () => {
-    const overrideDir = join(tempDir, ".ningzhi", "skills", "planner");
+    const overrideDir = join(tempDir, ".ningzhiAgentCli", "skills", "planner");
     mkdirSync(overrideDir, { recursive: true });
     writeFileSync(
       join(overrideDir, "SKILL.md"),

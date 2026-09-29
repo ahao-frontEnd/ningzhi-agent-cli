@@ -49,10 +49,10 @@ export function discoverSkills(): SkillInfo[] {
   skillContentMap.clear();
 
   const skillDirs = [
+    join(__dirname, "skills"), // cli 内置的 skill, 作为默认值
     join(homedir(), ".agents", "skills"), // 全局skill
     join(homedir(), ".ningzhiAgentCli", ".agents", "skills"), // 工作空间，第三方安装的skill
     join(homedir(), ".ningzhiAgentCli", "skills"), // 工作空间，用户自己创建的
-    join(__dirname, "skills"), // cli 内置的 skill
   ];
 
   for (const skillsDir of skillDirs) {
