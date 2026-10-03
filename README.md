@@ -195,13 +195,12 @@ npx skills add https://github.com/anthropics/skills/tree/main/skills/pdf
 ## 使用示例
 
 1. 初始化
-   ![alt image](./docs/images/ningzhi-init.png)
+   ![alt image](https://raw.githubusercontent.com/ahao-frontEnd/ningzhi-agent-cli/refs/heads/master/docs/images/ningzhi-init.png)
 
 2. 查看版本和启动
-   ![alt image](./docs/images/ningzhi-introduce.png)
+   ![alt image](https://raw.githubusercontent.com/ahao-frontEnd/ningzhi-agent-cli/refs/heads/master/docs/images/ningzhi-introduce.png)
 
-3. 给Agent发送指令
-   ![alt image](./docs/images/ningzhi-instance1.png)
+   ![alt image](https://raw.githubusercontent.com/ahao-frontEnd/ningzhi-agent-cli/refs/heads/master/docs/images/ningzhi-instance1.png)
 
 ## 技术栈
 
