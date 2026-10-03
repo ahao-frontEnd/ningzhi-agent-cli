@@ -1,3 +1,4 @@
+/// <reference path="../streammark.d.ts" />
 import * as readline from "readline"; // readline 用于处理命令行输入输出，提供交互式界面
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -65,6 +66,10 @@ function prompt(question: string): Promise<string> {
 async function chat(userInput: string): Promise<void> {
   const rl = createInterface();
 
+  // 动态导入 streammark（ESM 模块），创建流式 Markdown 渲染器
+  const { MarkdownStream } = await import("streammark");
+  const mdStream = new MarkdownStream({ theme: "dark" });
+
   process.stdout.write("\n" + color.aiPrefix());
 
   const controller = new AbortController();
@@ -89,7 +94,9 @@ async function chat(userInput: string): Promise<void> {
     const result = await runAgentStream(
       userInput,
       (token: string) => {
-        process.stdout.write(token);
+        // process.stdout.write(token);
+        // 将 token 推给 streammark 渲染器，由它负责流式 Markdown 渲染
+        mdStream.write(token);
       },
       async (toolCalls) => {
         for (const call of toolCalls) {
@@ -115,6 +122,8 @@ async function chat(userInput: string): Promise<void> {
     process.stdin.removeListener("keypress", escListener);
     // 关闭接口，"交出对 stdin 的控制权"，移除 readline 挂在 stdin 上的内部监听
     rl.close();
+    // 结束 Markdown 流，刷新缓冲区中剩余的未完成内容
+    mdStream.end();
   }
 
   // 在一轮对话 结束后打印 token 使用情况

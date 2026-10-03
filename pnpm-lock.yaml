@@ -53,6 +53,9 @@ importers:
       langchain:
         specifier: 1.5.10
         version: 1.5.10(@langchain/core@1.2.9(openai@7.5.0(zod@4.4.3)))(openai@7.5.0(zod@4.4.3))
+      streammark:
+        specifier: 1.0.4
+        version: 1.0.4
       zod:
         specifier: 4.4.3
         version: 4.4.3
@@ -1872,6 +1875,9 @@ packages:
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
+
+  streammark@1.0.4:
+    resolution: {integrity: sha512-2r1Jtw8P3wdsqjmwo6fIYZZeyc99seYyM63DEEuMbDmFqLD8xO8L6+ovThcR67eQSs51NOnH0gLLySB4Mksm3A==}
 
   string-length@4.0.2:
     resolution: {integrity: sha512-+l6rNN5fYHNhZZy41RXsYptCjA2Igmq4EG7kZAYFQI1E1VTXarr6ZPXBg6eq7Y6eK4FEhY6AJlyuFIb/v/S0VQ==}
@@ -4165,6 +4171,11 @@ snapshots:
       escape-string-regexp: 2.0.0
 
   statuses@2.0.2: {}
+
+  streammark@1.0.4:
+    dependencies:
+      chalk: 5.6.2
+      string-width: 7.2.0
 
   string-length@4.0.2:
     dependencies:
