@@ -122,7 +122,7 @@ async function chat(userInput: string): Promise<void> {
     const limit = getModelContextLimit();
     const percentage = (usageMetadata.total_tokens / limit) * 100;
     const percentageStr = percentage.toFixed(1);
-    const tokenText = `\n\nTokens: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentageStr}%)`;
+    const tokenText = `\n\nContext window token usage rate: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentageStr}%)`;
     if (percentage >= 80) {
       process.stdout.write(
         "\n" +

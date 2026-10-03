@@ -13,6 +13,9 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "moonshot-v1-32k": 32768,
   "moonshot-v1-128k": 131072,
   "kimi-k2.6": 256000,
+  "kimi-k2.7-code": 262144,
+  "kimi-k2.7-code-highspeed": 262144,
+  "kimi-k3": 1048576,
 
   // DeepSeek
   "deepseek-chat": 1048576,
@@ -20,12 +23,18 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "deepseek-v3": 65536,
   "deepseek-v3.1": 131072,
   "deepseek-v4": 1048576,
+  "deepseek-v4-pro": 1048576,
+  "deepseek-v4-flash": 1048576,
+  "deepseek-flash": 1048576,
   "deepseek-r1": 65536,
 
   // MiniMax
   "minimax-text-01": 1048576,
   "minimax-m1": 1048576,
+  "minimax-m2.7": 204800,
+  "minimax-m2.7-highspeed": 204800,
   "minimax-m3": 1048576,
+  "minimax-m3.1-flash-preview": 1000000,
 
   // GLM (智谱)
   "glm-4": 131072,
@@ -33,6 +42,18 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "glm-4-air": 131072,
   "glm-4-flash": 131072,
   "glm-4v": 131072,
+  "glm-4.5-air": 131072,
+  "glm-4.5-airx": 131072,
+  "glm-4.6": 204800,
+  "glm-4.7": 204800,
+  "glm-4.7-flashx": 204800,
+  "glm-5": 204800,
+  "glm-5-turbo": 204800,
+  "glm-5.1": 204800,
+  "glm-5.2": 1048576,
+  "glm-5.3": 1048576,
+  "glm-5.3-flash": 1048576,
+  "glm-5.3-flashx": 1048576,
 
   // Qwen (Alibaba)
   "qwen-max": 32768,
@@ -40,6 +61,14 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   "qwen-plus-2025-07-28": 1048576,
   "qwen-turbo": 1048576,
   "qwen-long": 10485760,
+  "qwen3.5-plus": 1000000,
+  "qwen3.5-flash": 1000000,
+  "qwen3.6-plus": 1000000,
+  "qwen3.6-flash": 1000000,
+  "qwen3.7-plus": 1000000,
+  "qwen3.7-flash": 1000000,
+  "qwen3.8-max": 1000000,
+  "qwen3.8-flash": 1000000,
 
   // Xiaomi MiMo
   "mimo-7b": 32768,
@@ -48,7 +77,7 @@ const MODEL_CONTEXT_LIMITS: Record<string, number> = {
 
 export function getModelContextLimit(): number {
   const modelName = getModelConfig().model || "";
-  return MODEL_CONTEXT_LIMITS[modelName.toLowerCase()] || 128000;
+  return MODEL_CONTEXT_LIMITS[modelName.toLowerCase()] || 204800;
 }
 
 /**
