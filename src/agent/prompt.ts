@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { discoverSkills, getSkillsListText } from "./skills";
 import { WORKSPACE_DIR } from "./config";
+import { listRecentMemories } from "./db";
 
 /**
  *
@@ -90,19 +91,40 @@ For simple, single-step tasks, do NOT use the todo list tools.`;
 
 /**
  *
- * 组装系统提示词
- *
- * `filter(Boolean)` 会把数组中所有“假值”（falsy values）剔除，
- * 主要包括：空字符串`""` 、`null` 、`undefined` 、`0` 、`false` 、`NaN` 。
- * ===》防止系统提示词中会出现无意义的空白段落，浪费 token 且影响结构清晰度
+ *  长期记忆预加载
+ *  缓存长期记忆
  */
-export const systemPrompt = [
-  basePrompt,
-  profilePrompt,
-  memoryPrompt,
-  skillPrompt,
-  dateTimePrompt,
-  todoPrompt,
-]
-  .filter(Boolean)
-  .join("\n\n");
+let cachedMemories: ReturnType<typeof listRecentMemories> | null = null;
+// 清空缓存
+export function invalidateMemoryCache(): void {
+  cachedMemories = null;
+}
+
+/**
+ *
+ *  组装系统提示词
+ */
+export function buildSystemPrompt(): string {
+  if (!cachedMemories) {
+    cachedMemories = listRecentMemories(10);
+  }
+  const memorySection =
+    cachedMemories.length > 0
+      ? `## Recent Memories\n\n${cachedMemories.map((m) => `- ${m.content}`).join("\n")}`
+      : "";
+
+  // `filter(Boolean)` 会把数组中所有“假值”（falsy values）剔除，
+  // 主要包括：空字符串`""` 、`null` 、`undefined` 、`0` 、`false` 、`NaN` 。
+  // ===》防止系统提示词中会出现无意义的空白段落，浪费 token 且影响结构清晰度
+  return [
+    basePrompt,
+    profilePrompt,
+    memorySection,
+    memoryPrompt,
+    skillPrompt,
+    dateTimePrompt,
+    todoPrompt,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}

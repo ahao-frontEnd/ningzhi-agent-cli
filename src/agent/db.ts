@@ -94,7 +94,41 @@ export function searchMemories(
   }
 }
 
-// 检查会话id是否存在
+/**
+ * 列出最近记忆
+ */
+export function listRecentMemories(limit = 10): MemorySearchResult[] {
+  const db = new Database(DB_PATH);
+  try {
+    const rows = db
+      .prepare(
+        `
+      SELECT * FROM memory
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `,
+      )
+      .all(limit) as Array<Record<string, unknown>>;
+
+    return rows.map((r) => ({
+      id: r.id as number,
+      type: r.type as string,
+      content: r.content as string,
+      keywords: r.keywords as string | null,
+      importance: r.importance as number,
+      session_id: r.session_id as string | null,
+      created_at: r.created_at as string,
+      updated_at: r.updated_at as string,
+      final_score: 0,
+    }));
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * 检查会话id是否存在
+ */
 export function threadIdExists(threadId: string): boolean {
   const db = new Database(DB_PATH);
   try {
@@ -111,7 +145,9 @@ export function threadIdExists(threadId: string): boolean {
   }
 }
 
-// 初始化数据库
+/**
+ * 初始化数据库
+ */
 export function initDb(): void {
   const db = new Database(DB_PATH);
   try {

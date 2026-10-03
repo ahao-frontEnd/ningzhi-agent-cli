@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { DB_PATH } from "../db";
+import { invalidateMemoryCache } from "../prompt";
 
 const VALID_TYPES = ["fact", "event", "preference", "skill"];
 
@@ -44,6 +45,8 @@ export async function memoryCreateTool(
        VALUES (?, ?, ?, ?, ?)`,
     );
     stmt.run(type, trimmed, keywordsJson, importanceValue, sessionId);
+    // 清空长期记忆缓存
+    invalidateMemoryCache();
     return "Memory saved successfully.";
   } catch (err) {
     return `Error: ${(err as Error).message}`;

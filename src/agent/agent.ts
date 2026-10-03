@@ -27,7 +27,7 @@ import { tools, maybePersistedOutput, initTools } from "./tools";
 import { compressMessages, findSafeCompressionIndex } from "./context";
 import { formatToolLog, formatTodoList } from "./colors";
 import { processTodoCalls, formatTodoListForPrompt } from "./todo";
-import { systemPrompt } from "./prompt";
+import { buildSystemPrompt } from "./prompt";
 
 import { checkReadPermission } from "./permission/read";
 import { checkWritePermission } from "./permission/write";
@@ -142,7 +142,7 @@ function createAgentGraph(toolList: typeof tools) {
     // 只保留最近 500 条消息， 极端场景，一般达不到，是为了防止上下文爆炸，不过一般不加这个逻辑也可以正常工作
     modelMessages = modelMessages.slice(-500);
     // 构建模型输入，包含系统提示词和简化后的消息
-    const messages: BaseMessage[] = [new SystemMessage(systemPrompt)];
+    const messages: BaseMessage[] = [new SystemMessage(buildSystemPrompt())];
     // 如果有待办事项，添加到系统提示词
     if (state.todoList && state.todoList.length > 0) {
       messages.push(

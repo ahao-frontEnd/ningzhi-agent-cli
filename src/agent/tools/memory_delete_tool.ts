@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { DB_PATH } from "../db";
+import { invalidateMemoryCache } from "../prompt";
 
 export async function memoryDeleteTool(
   {
@@ -21,6 +22,8 @@ export async function memoryDeleteTool(
     }
 
     db.prepare("DELETE FROM memory WHERE id = ?").run(id);
+    // 清空长期记忆缓存
+    invalidateMemoryCache();
     return `Memory ${id} deleted successfully.`;
   } catch (err) {
     return `Error: ${(err as Error).message}`;
