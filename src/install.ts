@@ -87,13 +87,14 @@ export async function runInstall(): Promise<void> {
       path.join(SKILLS_DIR, "find-skills"),
       tempDir,
     );
-    installSkill(
-      "skill-creator",
-      "anthropics/skills",
-      "skills/skill-creator",
-      path.join(SKILLS_DIR, "skill-creator"),
-      tempDir,
-    );
+    // 容易安装失败，===》 内置到 agent 中，优化 首次安装的使用体验
+    // installSkill(
+    //   "skill-creator",
+    //   "anthropics/skills",
+    //   "skills/skill-creator",
+    //   path.join(SKILLS_DIR, "skill-creator"),
+    //   tempDir,
+    // );
   } finally {
     // Windows 下刚写入的文件可能被杀毒软件/索引服务短暂锁定（EBUSY），
     // maxRetries 让 Node 内置重试；清理失败不应中断主流程，故仅提示
