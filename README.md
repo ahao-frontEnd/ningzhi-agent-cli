@@ -30,15 +30,6 @@ ningzhi
 npm update ningzhi-agent-cli -g
 ```
 
-## 技术栈
-
-- runtime：Node.js（>= 22）
-- language：TypeScript
-- package tool：pnpm
-- agent framework：LangGraph
-- LLM API：Moonshot Kimi（兼容任意 OpenAI 格式接口）
-- CLI tool：commander.js
-
 ## Config
 
 柠智 Ningzhi 初次运行时，会自动创建配置文件 **`~/.ningzhiAgentCli/ningzhi.json`**，你至少需要配置 2 项：
@@ -200,6 +191,26 @@ npx skills add https://github.com/anthropics/skills/tree/main/skills/pdf
   }
 }
 ```
+
+## 使用示例
+
+1. 初始化
+   ![alt image](./docs/images/ningzhi-init.png)
+
+2. 查看版本和启动
+   ![alt image](./docs/images/ningzhi-introduce.png)
+
+3. 给Agent发送指令
+   ![alt image](./docs/images/ningzhi-instance1.png)
+
+## 技术栈
+
+- runtime：Node.js（>= 22）
+- language：TypeScript
+- package tool：pnpm
+- agent framework：LangGraph
+- LLM API：Moonshot Kimi（兼容任意 OpenAI 格式接口）
+- CLI tool：commander.js
 
 ## Development
 
