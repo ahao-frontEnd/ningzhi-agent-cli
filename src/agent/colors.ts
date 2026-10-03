@@ -43,8 +43,7 @@ export const color = {
   // 工具调用日志相关样式
   toolTag: () => ck().magentaBright("[Tool]"), // magentaBright 粉色高亮
   toolName: (name: string) => ck().yellowBright(name), // yellowBright 黄色高亮
-  // toolAction: () => ck().gray("called:"), // gray 灰色
-  toolAction: () => ck().gray("called"), // gray 灰色
+  toolAction: () => ck().gray("called:"), // gray 灰色
   toolArg: (arg: string) => ck().cyan(arg), // cyan 青色
 
   gray: (text: string) => ck().gray(text),
@@ -87,7 +86,7 @@ export function formatTodoList(items: TodoDisplayItem[]): string {
 export function formatToolLog(name: string, detail?: string): string {
   const parts = [color.toolTag(), color.toolName(name), color.toolAction()];
   if (detail) {
-    // parts.push(color.toolArg(detail));
+    parts.push(color.toolArg(detail));
   }
   return "\n" + parts.join(" ");
 }
