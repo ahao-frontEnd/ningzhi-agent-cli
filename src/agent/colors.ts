@@ -52,7 +52,35 @@ export const color = {
   warn: (text: string) => ck().yellow(text),
   info: (text: string) => ck().blueBright(text),
   good: (text: string) => ck().greenBright(text),
+
+  todoTag: () => ck().magentaBright("[Todo]"),
 };
+
+export interface TodoDisplayItem {
+  content: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+}
+
+// 打印更新 todoList 后的待办事项列表
+export function formatTodoList(items: TodoDisplayItem[]): string {
+  const lines = [color.todoTag()];
+  for (const item of items) {
+    const symbol =
+      item.status === "completed"
+        ? color.good("✓")
+        : item.status === "in_progress"
+          ? color.info("→")
+          : item.status === "failed"
+            ? color.error("✗")
+            : color.gray("○");
+    const desc =
+      item.status === "completed" || item.status === "failed"
+        ? color.gray(item.content)
+        : item.content;
+    lines.push(`  ${symbol} ${desc}`);
+  }
+  return "\n" + lines.join("\n") + "\n";
+}
 
 // 格式化工具调用日志：形如 [Tool] toolName called: detail
 export function formatToolLog(name: string, detail?: string): string {

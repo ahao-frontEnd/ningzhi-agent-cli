@@ -152,3 +152,5 @@ docs/superpowers
 .playwright-mcp
 .playwright-cli
 page-snapshot.yml
+
+output

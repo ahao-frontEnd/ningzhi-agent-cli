@@ -257,6 +257,51 @@ const agentTool = createNingzhiTool(
   "exec",
 );
 
+// 兜底逻辑
+async function createTodoListDummy(): Promise<string> {
+  return "Error: create_todo_list should be handled internally by the agent.";
+}
+
+async function updateTodoStatusDummy(): Promise<string> {
+  return "Error: update_todo_status should be handled internally by the agent.";
+}
+
+const createTodoListTool = createNingzhiTool(
+  createTodoListDummy,
+  {
+    name: "create_todo_list",
+    description:
+      "Create a structured todo list for a complex, multi-step task. Must be called BEFORE starting execution. Each item should be a clear, actionable step.",
+    schema: z.object({
+      items: z
+        .array(z.string().describe("A single todo item description."))
+        .describe(
+          "The list of todo items to create. Each item should be a clear, actionable step.",
+        ),
+    }),
+  },
+  "read",
+);
+const updateTodoStatusTool = createNingzhiTool(
+  updateTodoStatusDummy,
+  {
+    name: "update_todo_status",
+    description:
+      "Update the status of a todo item in the current todo list. Call this after completing EACH step.",
+    schema: z.object({
+      index: z
+        .number()
+        .int()
+        .min(0)
+        .describe("The zero-based index of the todo item to update."),
+      status: z
+        .enum(["in_progress", "completed", "failed"])
+        .describe("The new status of the todo item."),
+    }),
+  },
+  "read",
+);
+
 /**
  * 可能持久化输出，如果输出长度超过最大限制则保存到文件
  * @param {string} content - 要持久化的输出内容
@@ -306,6 +351,8 @@ export const nativeTools: NingzhiTool[] = [
   memoryDeleteTool,
   profileUpdateTool,
   agentTool,
+  createTodoListTool,
+  updateTodoStatusTool,
 ];
 
 export let tools: NingzhiTool[] = [...nativeTools];

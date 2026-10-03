@@ -25,7 +25,8 @@ import { DB_PATH } from "./db";
 import { tools, maybePersistedOutput, initTools } from "./tools";
 
 import { compressMessages, findSafeCompressionIndex } from "./context";
-import { formatToolLog } from "./colors";
+import { formatToolLog, formatTodoList } from "./colors";
+import { processTodoCalls, formatTodoListForPrompt } from "./todo";
 import { systemPrompt } from "./prompt";
 
 import { checkReadPermission } from "./permission/read";
@@ -61,6 +62,12 @@ const StateAnnotation = Annotation.Root({
   lastCompressedIndex: Annotation<number>({
     reducer: (_prev: number, next: number) => next, // 保持最新压缩索引
     default: () => 0,
+  }),
+  // SqliteSaver 会自动持久化该字段，不受 context compression 影响
+  // 即便是压缩了，或者退出了再重新开始，都不影响
+  todoList: Annotation<import("./todo.ts").TodoItem[] | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
   }),
 });
 
@@ -135,7 +142,16 @@ function createAgentGraph(toolList: typeof tools) {
     // 只保留最近 500 条消息， 极端场景，一般达不到，是为了防止上下文爆炸，不过一般不加这个逻辑也可以正常工作
     modelMessages = modelMessages.slice(-500);
     // 构建模型输入，包含系统提示词和简化后的消息
-    const messages = [new SystemMessage(systemPrompt), ...modelMessages];
+    const messages: BaseMessage[] = [new SystemMessage(systemPrompt)];
+    // 如果有待办事项，添加到系统提示词
+    if (state.todoList && state.todoList.length > 0) {
+      messages.push(
+        new SystemMessage(
+          `当前任务进度：\n${formatTodoListForPrompt(state.todoList)}`,
+        ),
+      );
+    }
+    messages.push(...modelMessages);
     // 调用模型
     const response = await modelWithTheseTools.invoke(messages, config);
     // 返回模型响应， response 是一个 AIMessage 对象
@@ -185,6 +201,7 @@ function createAgentGraph(toolList: typeof tools) {
         | { action: "allow" }
         | { action: "block"; reason: string }
         | { action: "confirm" };
+
       if (level === "read") {
         decision = checkReadPermission(call);
       } else if (level === "write") {
@@ -198,6 +215,7 @@ function createAgentGraph(toolList: typeof tools) {
       } else {
         decision = { action: "allow" as const };
       }
+
       if (decision.action === "allow") {
         allowCalls.push(call);
       } else if (decision.action === "block") {
@@ -212,6 +230,7 @@ function createAgentGraph(toolList: typeof tools) {
         confirmCalls.push(call);
       }
     }
+
     // 执行允许执行的工具调用
     async function executeCalls(
       calls: typeof toolCalls,
@@ -286,9 +305,34 @@ function createAgentGraph(toolList: typeof tools) {
       );
     }
 
-    const allowOutputs = await executeCalls(allowCalls);
+    // 分离 todo 工具调用
+    const regularAllowCalls: typeof allowCalls = [];
+    const todoAllowCalls: typeof allowCalls = [];
+    for (const call of allowCalls) {
+      if (
+        call.name === "create_todo_list" ||
+        call.name === "update_todo_status"
+      ) {
+        todoAllowCalls.push(call);
+      } else {
+        regularAllowCalls.push(call);
+      }
+    }
+    // 执行普通工具调用
+    const regularOutputs = await executeCalls(regularAllowCalls);
+    // 就是通过 LLM todoAllowCalls 的相关参数，更新状态图的 todoList  ===》 代替 tool.invoke 的执行
+    const todoResult = processTodoCalls(todoAllowCalls, state.todoList);
+    if (todoResult.todoList && todoResult.todoList.length > 0) {
+      console.log(formatTodoList(todoResult.todoList)); // 打印最新的待办事项列表
+    }
+    // 合并普通工具调用和 todo 工具调用结果
+    const allowOutputs = [...regularOutputs, ...todoResult.messages];
+
     if (confirmCalls.length === 0) {
-      return { messages: [...allowOutputs, ...blockMessages] };
+      return {
+        messages: [...allowOutputs, ...blockMessages],
+        todoList: todoResult.todoList,
+      };
     }
     const result = interrupt({ toolCalls: confirmCalls });
 
@@ -303,11 +347,15 @@ function createAgentGraph(toolList: typeof tools) {
       );
       return {
         messages: [...allowOutputs, ...blockMessages, ...deniedMessages],
+        todoList: todoResult.todoList,
       };
     }
 
     const confirmOutputs = await executeCalls(confirmCalls);
-    return { messages: [...allowOutputs, ...blockMessages, ...confirmOutputs] };
+    return {
+      messages: [...allowOutputs, ...blockMessages, ...confirmOutputs],
+      todoList: todoResult.todoList,
+    };
   }
 
   // 定义工作流

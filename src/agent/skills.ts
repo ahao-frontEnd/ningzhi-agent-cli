@@ -105,9 +105,6 @@ export function getSkillsListText(): string {
     lines.push(join(homedir(), ".agents", "skills"));
     lines.push(join(homedir(), ".ningzhiAgentCli", ".agents", "skills"));
     lines.push(join(homedir(), ".ningzhiAgentCli", "skills"));
-    lines.push(
-      `如果增加新 skill，必须放在 ${join(homedir(), ".ningzhiAgentCli", "skills")} 目录下`,
-    );
   }
   return lines.join("\n");
 }
