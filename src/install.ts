@@ -30,7 +30,7 @@ function installSkill(
     return;
   }
 
-  console.log(`  📥 正在下载 ${name}...`);
+  console.log(`  📥 正在下载 ${name}`);
   const tarPath = path.join(tempDir, `${name}.tar.gz`);
   const extractDir = path.join(tempDir, `${name}-extract`);
   fs.mkdirSync(extractDir, { recursive: true });
@@ -39,7 +39,7 @@ function installSkill(
     // 下载仓库 main 分支的 tar.gz 压缩包
     run(
       `curl -fsSL -o "${tarPath}" "https://github.com/${repo}/archive/refs/heads/main.tar.gz"`,
-      { timeout: 30000 },
+      { timeout: 20000 },
     );
     // 解压到临时目录
     run(`tar -xzf "${tarPath}" -C "${extractDir}"`, { timeout: 20000 });
@@ -73,7 +73,10 @@ export async function runInstall(): Promise<void> {
   console.log("✅ 数据库初始化完成\n");
 
   // 2. 安装 skills
-  console.log("🔧 正在安装默认 skills...");
+  console.log("🔧 正在安装默认 skills...(最多大约20s)");
+  console.log(
+    `  📥 如果失败会自动跳过， 后续可执行 "npx skills add xxxxxx" 来安装您需要的skill`,
+  );
   fs.mkdirSync(SKILLS_DIR, { recursive: true });
 
   // 创建系统临时目录，安装结束后在 finally 中清理
@@ -116,7 +119,7 @@ export async function runInstall(): Promise<void> {
   console.log("⚙️  正在创建配置文件...");
   const configTemplate = {
     model: {
-      model: "kimi-k2.6",
+      model: "kimi-k3",
       apiKey: "your-api-key",
       baseURL: "https://api.moonshot.cn/v1",
     },

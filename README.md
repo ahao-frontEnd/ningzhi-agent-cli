@@ -40,7 +40,7 @@ npm update ningzhi-agent-cli -g
 ```json
 {
   "model": {
-    "model": "kimi-k2.6",
+    "model": "kimi-k3",
     "apiKey": "sk-xxx",
     "baseURL": "https://api.moonshot.cn/v1"
   },
@@ -61,7 +61,7 @@ npm update ningzhi-agent-cli -g
 ```json
 {
   "model": {
-    "model": "kimi-k2.6",
+    "model": "kimi-k3",
     "apiKey": "sk-xxx",
     "baseURL": "https://api.moonshot.cn/v1"
   }
