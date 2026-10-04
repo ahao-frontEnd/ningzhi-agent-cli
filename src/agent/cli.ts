@@ -64,7 +64,7 @@ function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {
     // 清空上一轮可能残留的输入行：AI 生成期间 stdin 处于流动模式，用户误按的
     // 键会被 readline 累积到行缓冲区。若不清空，下一轮 question 会立即返回
-    // 残留内容，表现为“刚出提示符就自动提交了空内容/旧内容”。
+    // 残留内容，表现为"刚出提示符就自动提交了空内容/旧内容"。
     rl.write(null, { ctrl: true, name: "u" });
     rl.question(question, (answer) => {
       resolve(answer);
@@ -121,12 +121,18 @@ async function chat(userInput: string): Promise<void> {
     );
     usageMetadata = result.usageMetadata;
   } catch (err) {
-    if ((err as Error).message !== "abort") {
+    // 用户按 ESC 取消时，可能是手动抛出的 "abort"，也可能是流底层抛出的
+    // AbortError（message 含 "aborted"）。两种情况都静默处理，不显示错误。
+    const msg = (err as Error).message ?? "";
+    const isAbort =
+      msg === "abort" ||
+      (err as Error).name === "AbortError" ||
+      /abort/i.test(msg);
+    if (!isAbort) {
       throw err;
     }
   } finally {
     process.stdin.removeListener("keypress", escListener);
-    // 全局接口不在此处关闭，留给主循环退出时统一关闭
     // 结束 Markdown 流，刷新缓冲区中剩余的未完成内容
     mdStream.end();
   }

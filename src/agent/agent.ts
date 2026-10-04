@@ -397,6 +397,63 @@ function getSubAgent(): CompiledStateGraph<any, any, any> {
 }
 
 // ── 核心运行逻辑 ──────────────────────────────────────────
+
+/**
+ * 清理因 abort 导致的孤立 tool_calls。
+ *
+ * 当用户按 ESC 中断请求时，模型可能已经生成了一条带 tool_calls 的 AIMessage，
+ * 且已被 checkpointer 持久化，但对应的 ToolMessage 尚未写入。这会导致后续
+ * 请求被 API 拒绝（400 insufficient tool messages），会话彻底卡死。
+ *
+ * 本函数为每个没有对应 ToolMessage 的 tool_call 补充一条"已取消"消息，
+ * 保证消息历史始终合法。
+ */
+async function cleanupOrphanedToolCalls(
+  compiledAgent: CompiledStateGraph<any, any, any>,
+  config: any,
+): Promise<void> {
+  try {
+    const state = await compiledAgent.getState(config);
+    const messages: BaseMessage[] = state.values?.messages ?? [];
+    if (messages.length === 0) return;
+
+    // 找到最后一条带 tool_calls 的 AIMessage
+    const lastAIMessage = [...messages]
+      .reverse()
+      .find(
+        (m): m is AIMessage =>
+          AIMessage.isInstance(m) && !!m.tool_calls?.length,
+      );
+    if (!lastAIMessage?.tool_calls?.length) return;
+
+    // 收集已有 ToolMessage 对应的 tool_call_id
+    const respondedToolCallIds = new Set(
+      messages
+        .filter((m) => m.type === "tool")
+        .map((m) => (m as ToolMessage).tool_call_id),
+    );
+
+    // 找出没有对应 ToolMessage 的 tool_calls
+    const orphanToolCalls = lastAIMessage.tool_calls.filter(
+      (call) => call.id && !respondedToolCallIds.has(call.id),
+    );
+    if (orphanToolCalls.length === 0) return;
+
+    // 为每个未完成的 tool_call 添加"已取消"消息，使消息历史恢复合法
+    const cancelMessages = orphanToolCalls.map(
+      (call) =>
+        new ToolMessage({
+          content: "Operation cancelled by user.",
+          tool_call_id: call.id ?? "",
+          name: call.name,
+        }),
+    );
+    await compiledAgent.updateState(config, { messages: cancelMessages });
+  } catch {
+    // 清理失败不影响主流程，避免掩盖原始错误
+  }
+}
+
 async function _runAgent(
   compiledAgent: CompiledStateGraph<any, any, any>,
   userMessage: string,
@@ -411,63 +468,72 @@ async function _runAgent(
   let usageMetadata: UsageMetadata | undefined;
   let input: any = { messages: [new HumanMessage(userMessage)] };
 
-  while (true) {
-    const stream = await compiledAgent.stream(input, {
-      ...config,
-      streamMode: "messages",
-      signal,
-    });
-    // for await...of 遍历的是 异步可迭代对象（AsyncIterable）
-    // 每次 next() 返回的是 Promise，需要 await 才能拿到下一项。 LangGraph 的 agent.stream(...) 返回一个 AsyncGenerator。它的特点是：
-    // 不是一次性把结果给你，而是 LLM 每生成一个 token（或一小批 token），就 yield 一次。 必须等网络/模型把这块数据推送过来才能继续，这正是 await 存在的意义。
-    for await (const chunk of stream as any) {
-      if (signal?.aborted) {
-        throw new Error("abort");
+  try {
+    while (true) {
+      const stream = await compiledAgent.stream(input, {
+        ...config,
+        streamMode: "messages",
+        signal,
+      });
+      // for await...of 遍历的是 异步可迭代对象（AsyncIterable）
+      // 每次 next() 返回的是 Promise，需要 await 才能拿到下一项。 LangGraph 的 agent.stream(...) 返回一个 AsyncGenerator。它的特点是：
+      // 不是一次性把结果给你，而是 LLM 每生成一个 token（或一小批 token），就 yield 一次。 必须等网络/模型把这块数据推送过来才能继续，这正是 await 存在的意义。
+      for await (const chunk of stream as any) {
+        if (signal?.aborted) {
+          throw new Error("abort");
+        }
+        const message = chunk[0];
+        const metadata = chunk[1];
+        // streamMode: "messages" 下，工具调用等非模型节点产生的消息也会出现在流里，
+        // 通过 metadata.langgraph_node 过滤，只保留模型节点（model_request）输出的 token
+        if (metadata?.langgraph_node !== "model_request") continue;
+        // 从 message 中提取 token 使用信息
+        const msgUsage = (message as any).usage_metadata;
+        if (msgUsage) {
+          usageMetadata = msgUsage;
+        }
+        // AIMessageChunk 的 content 在 message.content 属性上，不在 kwargs.content
+        const content: string =
+          (message as any).content ?? (message as any).kwargs?.content ?? "";
+        const toolCallChunks = (message as any).tool_call_chunks ?? [];
+        // 过滤掉工具调用消息，只保留模型节点（model_request）输出的 token
+        if (!content || toolCallChunks.length > 0) continue;
+        // 回调 token 给调用方
+        onToken(content);
+        fullResponse += content;
       }
-      const message = chunk[0];
-      const metadata = chunk[1];
-      // streamMode: "messages" 下，工具调用等非模型节点产生的消息也会出现在流里，
-      // 通过 metadata.langgraph_node 过滤，只保留模型节点（model_request）输出的 token
-      if (metadata?.langgraph_node !== "model_request") continue;
-      // 从 message 中提取 token 使用信息
-      const msgUsage = (message as any).usage_metadata;
-      if (msgUsage) {
-        usageMetadata = msgUsage;
-      }
-      // AIMessageChunk 的 content 在 message.content 属性上，不在 kwargs.content
-      const content: string =
-        (message as any).content ?? (message as any).kwargs?.content ?? "";
-      const toolCallChunks = (message as any).tool_call_chunks ?? [];
-      // 过滤掉工具调用消息，只保留模型节点（model_request）输出的 token
-      if (!content || toolCallChunks.length > 0) continue;
-      // 回调 token 给调用方
-      onToken(content);
-      fullResponse += content;
+
+      // 流消费完后，取出当前会话状态，检查是否卡在 interrupt 上
+      // （toolNode 里的 interrupt({ toolCalls }) 会让图执行暂停，等待外部 resume）
+      const state = await compiledAgent.getState(config);
+      // 找到处于中断状态的任务（其 interrupts 数组非空）
+      const interruptedTask = state.tasks?.find(
+        (t: any) => t.interrupts?.length > 0,
+      );
+      // 没有中断任务，说明本轮已正常走到 END，退出 while 循环
+      if (!interruptedTask) break;
+
+      // =====》 有需要用户确认的工具调用，就会有中断任务  《===== 工具节点中断，来到 model_request 节点
+      // 把待确认的工具调用清单回调给调用方，由用户决定是否执行
+      const confirmed = await onToolConfirmation(
+        interruptedTask.interrupts[0].value.toolCalls,
+      );
+      // 用 Command({ resume }) 把用户的决定送回给正在等待的 interrupt()   =====》  发送给 toolNode
+      // 从 toolNode 里 interrupt() 调用的那一行继续往下执行
+      // 对应 toolNode 中 `const result = interrupt({ toolCalls })` 的返回值
+      input = new Command({ resume: confirmed ? "approved" : "denied" });
     }
 
-    // 流消费完后，取出当前会话状态，检查是否卡在 interrupt 上
-    // （toolNode 里的 interrupt({ toolCalls }) 会让图执行暂停，等待外部 resume）
-    const state = await compiledAgent.getState(config);
-    // 找到处于中断状态的任务（其 interrupts 数组非空）
-    const interruptedTask = state.tasks?.find(
-      (t: any) => t.interrupts?.length > 0,
-    );
-    // 没有中断任务，说明本轮已正常走到 END，退出 while 循环
-    if (!interruptedTask) break;
-
-    // =====》 有需要用户确认的工具调用，就会有中断任务  《===== 工具节点中断，来到 model_request 节点
-    // 把待确认的工具调用清单回调给调用方，由用户决定是否执行
-    const confirmed = await onToolConfirmation(
-      interruptedTask.interrupts[0].value.toolCalls,
-    );
-    // 用 Command({ resume }) 把用户的决定送回给正在等待的 interrupt()   =====》  发送给 toolNode
-    // 从 toolNode 里 interrupt() 调用的那一行继续往下执行
-    // 对应 toolNode 中 `const result = interrupt({ toolCalls })` 的返回值
-    input = new Command({ resume: confirmed ? "approved" : "denied" });
+    // 返回完整回复及 token 使用信息
+    return { response: fullResponse, usageMetadata };
+  } catch (err) {
+    // 如果是用户主动 abort（按 ESC），需要先清理消息历史中可能存在的
+    // 孤立 tool_calls，否则下一次请求会因 "insufficient tool messages" 被 API 拒绝
+    if (signal?.aborted) {
+      await cleanupOrphanedToolCalls(compiledAgent, config);
+    }
+    throw err;
   }
-
-  // 返回完整回复及 token 使用信息
-  return { response: fullResponse, usageMetadata };
 }
 
 /**
