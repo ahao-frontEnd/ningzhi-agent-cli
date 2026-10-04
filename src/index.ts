@@ -26,13 +26,14 @@ async function main(): Promise<void> {
   const { initColors } = await import("./agent/colors");
   const { initDb } = await import("./agent/db");
   const { initAgent } = await import("./agent/agent");
-  const { interactiveChat } = await import("./agent/cli");
+  const { interactiveChat, rl } = await import("./agent/cli");
   const { shutdownMcp } = await import("./agent/mcp");
   const { checkModel } = await import("./agent/model");
 
   await initColors();
   const valid = await checkModel();
   if (!valid) {
+    rl && rl.close(); // 关闭 readline 接口，避免后续输入
     return;
   }
   initDb();

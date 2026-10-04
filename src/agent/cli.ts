@@ -16,7 +16,7 @@ const pkg = JSON.parse(
 // 全局复用的 readline 接口。反复 createInterface/close 会导致 process.stdin
 // 在 flowing/paused 状态间反复切换，在 Windows 控制台下容易出现“提示符显示了
 // 但打字没反应、要多按一两次回车”的问题。复用单一接口可避免状态抖动。
-const rl = readline.createInterface({
+export const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
