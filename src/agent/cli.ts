@@ -13,12 +13,19 @@ const pkg = JSON.parse(
   readFileSync(join(__dirname, "../../package.json"), "utf-8"),
 );
 
-function createInterface() {
-  return readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-}
+// 全局复用的 readline 接口。反复 createInterface/close 会导致 process.stdin
+// 在 flowing/paused 状态间反复切换，在 Windows 控制台下容易出现“提示符显示了
+// 但打字没反应、要多按一两次回车”的问题。复用单一接口可避免状态抖动。
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+// 让 process.stdin 开始发出 "keypress" 事件（默认不发）
+// 这样才能在 AI 请求过程中 实时捕获 ESC 键而不必等待用户按回车
+// 只初始化一次：让 process.stdin 发出 keypress 事件，供 ESC 取消功能使用。
+// emitKeypressEvents 本身是幂等的，但放在模块加载阶段更清晰。
+readline.emitKeypressEvents(process.stdin);
 
 // 打印启动 Banner：ASCII 艺术标题 + 信息盒 + 使用说明
 async function printBanner(): Promise<void> {
@@ -55,17 +62,17 @@ async function printBanner(): Promise<void> {
 
 function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {
-    const rl = createInterface(); // 创建 readline 接口，用于处理用户输入
+    // 清空上一轮可能残留的输入行：AI 生成期间 stdin 处于流动模式，用户误按的
+    // 键会被 readline 累积到行缓冲区。若不清空，下一轮 question 会立即返回
+    // 残留内容，表现为“刚出提示符就自动提交了空内容/旧内容”。
+    rl.write(null, { ctrl: true, name: "u" });
     rl.question(question, (answer) => {
-      rl.close();
       resolve(answer);
     });
   });
 }
 
 async function chat(userInput: string): Promise<void> {
-  const rl = createInterface();
-
   // 动态导入 streammark（ESM 模块），创建流式 Markdown 渲染器
   const { MarkdownStream } = await import("streammark");
   const mdStream = new MarkdownStream({ theme: "dark" });
@@ -79,14 +86,13 @@ async function chat(userInput: string): Promise<void> {
     if (key.name === "escape" || key.name === "esc") {
       process.stdout.write("\n\n" + color.cancelled("[Cancelled]") + "\n");
       controller.abort();
-      rl.close();
     }
   };
-  // 让 process.stdin 开始发出 "keypress" 事件（默认不发）
-  // 这样才能在 AI 请求过程中 实时捕获 ESC 键而不必等待用户按回车
-  readline.emitKeypressEvents(process.stdin);
   // 监听 process.stdin 的 "keypress" 事件，捕获 ESC 键
   process.stdin.on("keypress", escListener);
+  // rl.question 结束时会内部调用 rl.pause() 暂停 stdin，导致 AI 生成期间
+  // keypress 事件无法触发、ESC 取消失效。这里主动恢复 stdin 流动。
+  process.stdin.resume();
 
   let usageMetadata;
 
@@ -120,8 +126,7 @@ async function chat(userInput: string): Promise<void> {
     }
   } finally {
     process.stdin.removeListener("keypress", escListener);
-    // 关闭接口，"交出对 stdin 的控制权"，移除 readline 挂在 stdin 上的内部监听
-    rl.close();
+    // 全局接口不在此处关闭，留给主循环退出时统一关闭
     // 结束 Markdown 流，刷新缓冲区中剩余的未完成内容
     mdStream.end();
   }
@@ -131,7 +136,7 @@ async function chat(userInput: string): Promise<void> {
     const limit = getModelContextLimit();
     const percentage = (usageMetadata.total_tokens / limit) * 100;
     const percentageStr = percentage.toFixed(1);
-    const tokenText = `\n\nContext window token usage rate: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentageStr}%)`;
+    const tokenText = `\nContext window token usage rate: ${usageMetadata.total_tokens.toLocaleString()} / ${limit.toLocaleString()} (${percentageStr}%)`;
     if (percentage >= 80) {
       process.stdout.write(
         "\n" +
@@ -168,11 +173,6 @@ async function chat(userInput: string): Promise<void> {
     }
   }
   process.stdout.write("\n\n");
-  // 在本轮对话的 readline 接口关闭后，把`process.stdin` 恢复回“流动模式”，
-  // 确保下一轮`prompt()` 能正常读到用户输入
-  // `rl.close()` 移除了所有消费者之后，stdin 可能退回暂停模式。
-  // 如果不恢复，下一轮主循环里`prompt()` 新建的接口有可能出现“提示符显示了但打字没反应”的情况
-  rl.resume();
 }
 
 export async function interactiveChat(): Promise<void> {
@@ -185,6 +185,7 @@ export async function interactiveChat(): Promise<void> {
     if (!userInput.trim()) continue;
     if (userInput.toLowerCase() === "exit") {
       console.log(color.goodbye("再见！"));
+      rl.close();
       break;
     }
     // 以 "/" 开头的输入按内置命令处理（如 /skills），否则交给 AI
